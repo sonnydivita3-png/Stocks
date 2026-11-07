@@ -606,6 +606,9 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
     )
     m["debt_to_equity"] = safe_div(debt, equity)
     m["debt_to_assets"] = safe_div(debt, f.get("total_assets"))
+    # Equity as a share of assets: the one solvency measure that means
+    # something for a bank or insurer, where net debt and Altman Z do not.
+    m["equity_to_assets"] = safe_div(equity, f.get("total_assets"))
     m["net_debt_to_ebitda"] = NAN if f.is_financial else safe_div(nd, ebitda_v)
     m["interest_coverage"] = safe_div(ebit, f.get("interest_expense"))
     m["net_cash_per_share"] = safe_div(-nd if is_num(nd) else NAN, shares)

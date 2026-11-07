@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+"""Build the data files behind the Valuation Desk dashboard.
+
+Run directly, or from the weekly refresh job:
+
+    python scripts/build_desk_snapshot.py --out ./desk --limit 515
+
+It writes four CSVs plus a JSON record of everything computed. The CSVs are
+what gets attached to the dashboard; the JSON exists so a later run can resume.
+
+**Resumable by design.** A full pass takes well over an hour at the data
+providers' rate limits, and a worker restart partway through would otherwise
+lose all of it. Results are appended to the JSON every few companies, and a
+rerun skips whatever is already there, so an interrupted run costs minutes
+rather than the whole pass.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import logging
+import sys
+import warnings
+from datetime import datetime, timezone
+from pathlib import Path
+
+warnings.filterwarnings("ignore")
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import pandas as pd  # noqa: E402
+
+from stocklab.analysis.regime import assess  # noqa: E402
+from stocklab.company import Company  # noqa: E402
+from stocklab.data.providers.sec import fetch_frame, fetch_ticker_map  # noqa: E402
+from stocklab.data.universe import MEGA_CAP_SAMPLE, common_stocks  # noqa: E402
+from stocklab.scoring import score, size_band  # noqa: E402
+from stocklab.util.mathx import is_num  # noqa: E402
+from stocklab.valuation import composite  # noqa: E402
+
+log = logging.getLogger("desk")
+
+REVENUE_TAGS = (
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "RevenueFromContractWithCustomerIncludingAssessedTax",
+)
+
+# Revenue floor, ceiling, how many to take by size, how many by growth.
+BANDS = (
+    ("mega_large", 2.0e10, 1e15, 110, 20),
+    ("mid", 4.0e9, 2.0e10, 90, 45),
+    ("small", 8.0e8, 4.0e9, 70, 75),
+    ("emerging", 6.0e7, 8.0e8, 25, 90),
+)
+
+COLUMNS = [
+    "symbol", "name", "sector", "industry", "size", "grade", "overall",
+    "quality", "growth", "safety", "price_score", "momentum", "coverage",
+    "say_quality", "say_growth", "say_safety", "say_price", "price",
+    "market_cap", "revenue", "profitable", "roic_5y", "roic", "gross_margin",
+    "operating_margin", "fcf_margin", "net_debt_ebitda", "piotroski",
+    "altman_z", "rev_cagr_3y", "rev_cagr_5y", "rev_trend_r2", "pe", "ps",
+    "fcf_yield", "dividend_yield", "fair_value", "margin_of_safety",
+    "implied_return", "implied_erp", "confidence", "from_52w_high",
+    "momentum_12_1", "vol63", "years_of_data",
+]
+
+
+def num(value):
+    return float(value) if is_num(value) else None
+
+
+def _revenue_by_cik(period: str) -> dict[str, float]:
+    """Revenue for every filer in one calendar period.
+
+    One request per tag returns the whole market, which is what makes building
+    a 500-name universe cheap enough to do on every refresh.
+    """
+    out: dict[str, float] = {}
+    for tag in REVENUE_TAGS:
+        frame = fetch_frame(tag, period)
+        if frame.empty or "val" not in frame:
+            continue
+        for cik, value in pd.to_numeric(frame["val"], errors="coerce").dropna().items():
+            out.setdefault(str(cik), float(value))
+    return out
+
+
+def build_universe(limit: int = 515) -> list[str]:
+    """Pick a spread of companies across every size band."""
+    now = _revenue_by_cik("CY2025")
+    before = _revenue_by_cik("CY2022")
+    listed = set(common_stocks()["symbol"])
+
+    ticker_for: dict[str, str] = {}
+    for symbol, cik in fetch_ticker_map().items():
+        if symbol in listed:
+            ticker_for.setdefault(cik, symbol)
+
+    rows = []
+    for cik, revenue in now.items():
+        symbol = ticker_for.get(cik)
+        if not symbol or revenue <= 0:
+            continue
+        prior = before.get(cik)
+        growth = ((revenue / prior) ** (1 / 3) - 1) if (prior and prior > 0) else None
+        rows.append({"symbol": symbol, "revenue": revenue, "growth": growth})
+    if not rows:
+        log.warning("no candidates from the frames API; falling back to the sample list")
+        return list(MEGA_CAP_SAMPLE)
+
+    frame = pd.DataFrame(rows).drop_duplicates("symbol").set_index("symbol")
+    picked: list[str] = []
+    for _, low, high, by_size, by_growth in BANDS:
+        band = frame[(frame["revenue"] >= low) & (frame["revenue"] < high)]
+        biggest = list(band.sort_values("revenue", ascending=False).head(by_size).index)
+        growing = band[band["growth"].notna()]
+        # Above ~200% a year is almost always an acquisition or a tiny base.
+        growing = growing[(growing["growth"] > 0.05) & (growing["growth"] < 2.0)]
+        fastest = list(growing.sort_values("growth", ascending=False).head(by_growth).index)
+        picked += biggest + fastest
+
+    universe = list(dict.fromkeys(MEGA_CAP_SAMPLE + picked))
+    return universe[:limit]
+
+
+def analyse(symbol: str) -> dict | None:
+    """Full work-up and scorecard for one company."""
+    company = Company.load(symbol)
+    if not company.has_data:
+        return None
+    metrics, technicals = company.metrics, company.technicals
+    report = composite.value(company.fundamentals, metrics, company.price)
+    card = score(metrics, technicals, report)
+
+    row = {
+        "symbol": symbol, "name": company.name, "sector": company.sector,
+        "industry": company.fundamentals.industry,
+        "size": size_band(metrics.get("market_cap")),
+        "price": num(company.price), "market_cap": num(metrics.get("market_cap")),
+        "revenue": num(metrics.get("revenue")),
+        "profitable": bool(is_num(metrics.get("net_income")) and metrics["net_income"] > 0),
+        "roic_5y": num(metrics.get("roic_5y_avg")), "roic": num(metrics.get("roic")),
+        "gross_margin": num(metrics.get("gross_margin")),
+        "operating_margin": num(metrics.get("operating_margin")),
+        "fcf_margin": num(metrics.get("fcf_margin")),
+        "net_debt_ebitda": num(metrics.get("net_debt_to_ebitda")),
+        "piotroski": num(metrics.get("piotroski_f")),
+        "altman_z": num(metrics.get("altman_z")),
+        "rev_cagr_3y": num(metrics.get("revenue_cagr_3y")),
+        "rev_cagr_5y": num(metrics.get("revenue_cagr_5y")),
+        "rev_trend_r2": num(metrics.get("revenue_trend_r2")),
+        "pe": num(metrics.get("pe")), "ps": num(metrics.get("ps")),
+        "fcf_yield": num(metrics.get("fcf_yield")),
+        "dividend_yield": num(metrics.get("dividend_yield")),
+        "fair_value": num(report.fair_value),
+        "margin_of_safety": num(report.margin_of_safety),
+        "implied_return": num(report.implied_return),
+        "implied_erp": num(report.implied_equity_premium),
+        "confidence": report.confidence,
+        "from_52w_high": num(technicals.get("pct_from_52w_high")),
+        "momentum_12_1": num(technicals.get("momentum_12_1")),
+        "vol63": num(technicals.get("vol63")),
+        "years_of_data": num(metrics.get("years_of_data")),
+    }
+    scored = card.as_dict()
+    scored["price_score"] = scored.pop("price")
+    row.update({k: (num(v) if isinstance(v, float) else v) for k, v in scored.items()})
+    return row
+
+
+def write_csvs(out_dir: Path, record: dict) -> None:
+    companies = sorted(record["companies"],
+                       key=lambda c: -(c.get("overall") or -1))
+    regime = record.get("regime") or {}
+
+    def cell(row, key):
+        value = row.get(key)
+        return "" if value is None else value
+
+    with (out_dir / "companies.csv").open("w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(COLUMNS)
+        for row in companies:
+            writer.writerow([cell(row, k) for k in COLUMNS])
+
+    scored = [c for c in companies if c.get("overall") is not None]
+    top = [c for c in scored if c["grade"] in ("A", "B")]
+    smaller = [c for c in scored
+               if c.get("size") in ("small", "micro") or (c.get("market_cap") or 0) < 1e10]
+    both = [c for c in scored
+            if (c.get("quality") or 0) > 60 and (c.get("price_score") or 0) > 50]
+    with (out_dir / "counts.csv").open("w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["metric", "value", "note"])
+        for row in (
+            ("total", len(companies), "companies with usable filings and a price"),
+            ("scored", len(scored), "enough data to produce an overall score"),
+            ("grade_ab", len(top), "scored 68 or better overall"),
+            ("smaller_ab", len([c for c in top if c in smaller]), "of those worth under $10bn"),
+            ("smaller_total", len(smaller), "companies worth under $10bn"),
+            ("quality_and_price", len(both), "quality above 60 and price above 50"),
+            ("as_of", record["generated_at"][:10], "snapshot date"),
+        ):
+            writer.writerow(row)
+
+    if regime:
+        with (out_dir / "regime_components.csv").open("w", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["component", "score", "weight"])
+            for key, value in regime["components"].items():
+                writer.writerow([key.title(), round(value, 1), regime["weights"].get(key)])
+
+        readings = [
+            ("Index versus its one-year average", regime["trend"].get("dist_sma200"), "pct"),
+            ("Index below its recent high", regime["trend"].get("drawdown_from_high"), "pct"),
+            ("Index return over 12 months", regime["trend"].get("return_12m"), "pct"),
+            ("Share of large companies rising", regime["breadth"].get("pct_above_sma200"), "pct"),
+            ("Extra interest risky borrowers pay", regime["credit"].get("hy_oas"), "pp"),
+            ("  change over three months", regime["credit"].get("hy_oas_chg_3m"), "pp"),
+            ("Expected market swings (VIX)", regime["rates"].get("vix"), "level"),
+            ("Government 10-year interest rate", regime["rates"].get("ust_10y"), "pp"),
+            ("Unemployment rate", regime["rates"].get("unemployment"), "pp"),
+        ]
+        with (out_dir / "regime_readings.csv").open("w", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["measure", "value", "unit"])
+            for measure, value, unit in readings:
+                writer.writerow([measure, "" if value is None else round(value, 4), unit])
+
+        with (out_dir / "regime_summary.csv").open("w", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["metric", "value", "note"])
+            writer.writerow(["label", regime["label"], "overall market backdrop"])
+            writer.writerow(["score", round(regime["score"], 1), "out of 100"])
+            writer.writerow(["exposure", round(regime["exposure"], 2), "suggested exposure multiplier"])
+            writer.writerow(["as_of", record["generated_at"][:10], "snapshot date"])
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", default="./desk", help="directory for the CSVs and JSON")
+    parser.add_argument("--limit", type=int, default=515, help="how many companies")
+    parser.add_argument("--symbols", default="", help="comma-separated override universe")
+    parser.add_argument("--fresh", action="store_true", help="ignore any saved progress")
+    parser.add_argument("--save-every", type=int, default=5)
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    record_path = out_dir / "snapshot.json"
+
+    record = {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+              "companies": [], "errors": []}
+    done: set[str] = set()
+    if record_path.exists() and not args.fresh:
+        try:
+            record = json.loads(record_path.read_text())
+            done = {c["symbol"] for c in record.get("companies", [])}
+            log.info("resuming: %d companies already analysed", len(done))
+        except (ValueError, KeyError):
+            log.warning("saved progress unreadable; starting fresh")
+
+    log.info("market regime...")
+    try:
+        state = assess("SPY")
+        record["regime"] = {
+            "label": state["label"], "score": num(state["composite_score"]),
+            "exposure": num(state["exposure_multiplier"]),
+            "components": {k: num(v) for k, v in state["components"].items()},
+            "weights": {k: num(v) for k, v in state["weights"].items()},
+            "trend": {k: num(v) for k, v in state["trend"].items()},
+            "breadth": {k: num(v) for k, v in state["breadth"].items()},
+            "credit": {k: num(v) for k, v in state["credit"].items()},
+            "rates": {k: num(v) for k, v in state["rates"].items()},
+        }
+    except Exception as exc:  # noqa: BLE001 - a regime outage must not stop the run
+        log.warning("regime unavailable: %s", exc)
+        record.setdefault("regime", None)
+
+    if args.symbols:
+        universe = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+    else:
+        log.info("building universe...")
+        universe = build_universe(args.limit)
+    todo = [s for s in universe if s not in done]
+    log.info("universe %d | to analyse %d", len(universe), len(todo))
+
+    for index, symbol in enumerate(todo, 1):
+        try:
+            row = analyse(symbol)
+            if row is None:
+                record["errors"].append(f"{symbol}: no usable data")
+            else:
+                record["companies"].append(row)
+        except Exception as exc:  # noqa: BLE001 - one bad name must not stop the run
+            record["errors"].append(f"{symbol}: {type(exc).__name__}: {exc}")
+        if index % args.save_every == 0 or index == len(todo):
+            record["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            record_path.write_text(json.dumps(record, separators=(",", ":")))
+            log.info("[%d/%d] %s — saved", index, len(todo), symbol)
+
+    write_csvs(out_dir, record)
+    scored = [c for c in record["companies"] if c.get("overall") is not None]
+    log.info("\ndone: %d companies (%d scored), %d errors",
+             len(record["companies"]), len(scored), len(record["errors"]))
+    log.info("wrote %s", ", ".join(sorted(p.name for p in out_dir.glob("*.csv"))))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
