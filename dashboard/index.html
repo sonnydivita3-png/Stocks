@@ -277,21 +277,32 @@
       can be excellent at three things, badly overpriced at the fourth, and still come out
       with a good grade. That is the right way to ask &ldquo;is this a sound
       business?&rdquo; and the wrong way to ask &ldquo;should I buy it, at this
-      price?&rdquo; This list asks the second question a different way: ten conditions,
-      <b>every one of which has to hold</b>. Nothing makes up for anything.</p>
-    <p class="vd-note">Finding few companies is a real answer, not a broken screen. When
-      good businesses are expensive, almost nothing clears the last two conditions, and
-      that is worth knowing before you buy. The steps below show exactly where today&rsquo;s
-      market stops qualifying.</p>
+      price?&rdquo; These lists ask the second question a different way: a set of
+      conditions, <b>every one of which has to hold</b>. Nothing makes up for anything.</p>
+    <p class="vd-note"><b>There are three lists, because there are three ways a share can
+      be worth buying and they are not judged alike.</b> Asking a fast-growing company for
+      a discount to a no-growth valuation is how you never buy one; asking an unproven
+      company for a five-year profit record rules it out by definition. So each is asked
+      what actually matters for it.</p>
+    <p class="vd-note">Finding few companies is a real answer, not a broken screen. The
+      steps below show exactly where today&rsquo;s market stops qualifying.</p>
 
     <div class="vd-card">
+      <label class="vd-pick">
+        <span>I am looking for</span>
+        <select class="dash-select" id="vd-screen" aria-label="Which kind of buy">
+          <option value="value">a sound business at a discount</option>
+          <option value="growth">a company growing fast</option>
+          <option value="speculative">an unproven company worth a small bet</option>
+        </select>
+      </label>
+      <p class="vd-note" data-draw="screen-note" data-source="companies">&mdash;</p>
       <p class="vd-label">Clear every condition today</p>
-      <b class="vd-big" data-draw="count-qualify" data-source="counts" data-field="value"
-         data-where="metric=qualifying">&mdash;</b>
+      <b class="vd-big" data-draw="count-qualify" data-source="companies">&mdash;</b>
       <p class="vd-sub">out of <span data-draw="count-of" data-source="counts"
         data-field="value" data-where="metric=total">&mdash;</span> companies examined
-        &middot; <span data-draw="count-near" data-source="counts" data-field="value"
-        data-where="metric=near_miss">&mdash;</span> more fail exactly one</p>
+        &middot; <span data-draw="count-near" data-source="companies">&mdash;</span>
+        more fail exactly one</p>
     </div>
 
     <div class="vd-card">
@@ -305,9 +316,9 @@
 
     <div class="vd-card">
       <p class="vd-label">Nearly there</p>
-      <p class="vd-note">Companies failing exactly one condition, and which one. A price
-        fall or one better quarter moves a name from here onto the list above, so this is
-        the watchlist rather than the buy list.</p>
+      <p class="vd-note">Companies failing exactly one condition on this list, and which
+        one. A price fall or one better quarter moves a name from here onto the list
+        above, so this is the watchlist rather than the buy list.</p>
       <div data-draw="near-miss" data-source="companies"></div>
     </div>
   </section>
@@ -485,9 +496,7 @@
   scalar('count-total', 'counts', bySummary('total'));
   scalar('count-ab', 'counts', bySummary('grade_ab'));
   scalar('count-both', 'counts', bySummary('quality_and_price'));
-  scalar('count-qualify', 'counts', bySummary('qualifying'));
   scalar('count-of', 'counts', bySummary('total'));
-  scalar('count-near', 'counts', bySummary('near_miss'));
   scalar('regime-score', 'regime_summary', bySummary('score'));
   scalar('regime-label', 'regime_summary', (rows) => {
     const v = bySummary('label')(rows);
@@ -631,12 +640,43 @@
   const HEADLINE = 5;
   const BROWSE = 10;
 
+  // ---- the three screens ---------------------------------------------
+  // One set of conditions was a value screen under a general name: it passed
+  // one growth company in 58 and none of 116 speculative ones. A fast-growing
+  // company fails a value test for being fast-growing.
+  const SCREENS = {
+    value: 'A sound business, repeatedly profitable, at a discount to what it '
+         + 'looks worth. The dull end, and the one with the longest record behind it.',
+    growth: 'Growing for years rather than one year, funding its own growth rather '
+          + 'than issuing shares to pay for it, and not already priced for faster '
+          + 'growth than it has ever delivered.',
+    speculative: 'Not yet profitable, so the questions are different: real customers, '
+               + 'money made on each sale, losses narrowing, and enough cash to last '
+               + 'two years. Most companies like this lose their owners money. Size '
+               + 'any position accordingly.',
+  };
+  let screen = 'value';
+  const passes = (r) => String(r[screen + '_qualifies']).toLowerCase() === 'true';
+  const missedBy = (r) =>
+    (num(r[screen + '_total']) || 0) - (num(r[screen + '_passed']) || 0);
+
+  dash.draw('screen-note', (el) => { el.textContent = SCREENS[screen]; });
+  dash.draw('count-qualify', (el) => {
+    el.textContent = dash.data('companies').status === 'ok'
+      ? fmtI(rowsOf('companies').filter(passes).length) : '\u2014';
+  });
+  dash.draw('count-near', (el) => {
+    el.textContent = dash.data('companies').status === 'ok'
+      ? fmtI(rowsOf('companies').filter((r) => !passes(r) && missedBy(r) === 1).length)
+      : '\u2014';
+  });
+
   dash.draw('funnel', (el) => {
     const d = dash.data('screen');
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    const rows = rowsOf('screen');
+    const rows = rowsOf('screen').filter((r) => r.screen === screen);
     if (!rows.length) return;
     const start = (num(rows[0].survivors) || 0) + (num(rows[0].eliminated) || 0);
     if (!start) return;
@@ -676,14 +716,12 @@
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    const pass = rowsOf('companies')
-      .filter((r) => String(r.qualifies).toLowerCase() === 'true')
-      .sort(byWeakest);
+    const pass = rowsOf('companies').filter(passes).sort(byWeakest);
     if (!pass.length) {
       const none = document.createElement('p'); none.className = 'vd-miss';
-      none.textContent = 'Nothing clears every condition today. That is a reading on '
-        + 'the market, not a fault: the steps above show which condition it fails. '
-        + 'The watchlist below is where to look when prices move.';
+      none.textContent = 'Nothing clears every condition on this list today. That '
+        + 'is a reading on the market, not a fault: the steps above show where '
+        + 'companies drop out. The watchlist below is where to look when prices move.';
       el.appendChild(none); return;
     }
     pass.slice(0, HEADLINE).forEach((r) => el.appendChild(companyCard(r)));
@@ -695,12 +733,11 @@
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
     const labels = {};
-    rowsOf('screen').forEach((r) => { labels[r.key] = r.label; });
+    rowsOf('screen').filter((r) => r.screen === screen)
+      .forEach((r) => { labels[r.key] = r.label; });
     const near = rowsOf('companies')
-      .filter((r) => String(r.qualifies).toLowerCase() !== 'true'
-        && (num(r.gates_total) || 0) - (num(r.gates_passed) || 0) === 1)
-      .sort(byWeakest)
-      .slice(0, 12);
+      .filter((r) => !passes(r) && missedBy(r) === 1)
+      .sort(byWeakest).slice(0, 12);
     if (!near.length) {
       const none = document.createElement('p'); none.className = 'vd-miss';
       none.textContent = 'No company is one condition away today.';
@@ -713,7 +750,7 @@
       const nm = document.createElement('span'); nm.className = 'vd-near-name';
       nm.textContent = r.name;
       const miss = document.createElement('span'); miss.className = 'vd-near-miss';
-      const key = String(r.gates_failed || '').split('|')[0];
+      const key = String(r[screen + '_failed'] || '').split('|')[0];
       miss.textContent = 'fails: ' + (labels[key] || key).toLowerCase();
       li.append(sym, nm, miss);
       list.appendChild(li);
@@ -798,6 +835,14 @@
       el.appendChild(none); return;
     }
     picked.forEach((r) => el.appendChild(companyCard(r)));
+  });
+
+  document.querySelectorAll('#vd-screen').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      screen = SCREENS[sel.value] ? sel.value : 'value';
+      ['screen-note', 'count-qualify', 'count-near', 'funnel',
+       'qualify-cards', 'near-miss'].forEach((id) => dash.draw(id));
+    });
   });
 
   document.querySelectorAll('#vd-group').forEach((sel) => {
