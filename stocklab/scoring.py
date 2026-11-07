@@ -11,10 +11,15 @@ Two decisions worth stating, because they shape every number here:
   doing lately is a trading signal, not a statement about whether a business is
   sound or sensibly priced. It is computed and reported separately so it cannot
   quietly inflate a grade.
-* **A missing metric is not a zero.** Each score averages the sub-scores that
-  could actually be computed, so a company that never reports one line item is
-  judged on the rest rather than penalised for the gap. Where too little exists
-  to judge at all, the score is ``None`` and the grade is withheld.
+* **A missing metric is not a zero, but it is not free either.** Each score
+  averages the sub-scores that could actually be computed, so a company that
+  never reports one line item is judged on the rest rather than penalised for
+  the gap. But averaging only the survivors meant a thinly measured company
+  could score higher than a fully measured one: two favourable readings out of
+  five averaged to 95, while five honest readings averaged to 80. Scores built
+  on fewer inputs than expected are therefore shrunk toward 50 in proportion to
+  what is missing, and where too little exists to judge at all the score is
+  ``None`` and the grade is withheld.
 """
 from __future__ import annotations
 
@@ -57,12 +62,30 @@ class ScoreCard:
                 **{f"say_{k}": v for k, v in self.says.items()}}
 
 
-def _pillar(parts) -> tuple[float, int]:
-    """Average the sub-scores that exist; ``nan`` when none do."""
+# The score a thinly measured company is pulled toward. 50 is the middle of the
+# scale: "we do not know" should read as average, not as good and not as bad.
+NEUTRAL = 50.0
+
+
+def _pillar(parts, expect: int | None = None) -> tuple[float, int]:
+    """Average the sub-scores that exist, shrunk toward neutral when thin.
+
+    ``expect`` is how many sub-scores a company of this kind ought to produce.
+    Each missing one counts as a pseudo-observation at ``NEUTRAL``, so a pillar
+    measured on two of five inputs lands roughly halfway between its own
+    average and 50. With everything present the shrinkage term is zero and the
+    result is the plain mean. ``nan`` when nothing could be computed.
+    """
     values = [p for p in parts if is_num(p)]
     if not values:
         return NAN, 0
-    return sum(values) / len(values), len(values)
+    mean = sum(values) / len(values)
+    if expect is None:
+        return mean, len(values)
+    missing = max(0, expect - len(values))
+    if not missing:
+        return mean, len(values)
+    return (len(values) * mean + missing * NEUTRAL) / (len(values) + missing), len(values)
 
 
 def size_band(market_cap) -> str:
@@ -83,17 +106,54 @@ def grade_for(score) -> str:
     return "F"
 
 
+# Expected sub-score counts, used for the shrinkage in ``_pillar``. Financials
+# legitimately produce fewer, so they are held to a lower bar rather than
+# penalised for an accounting convention they did not choose.
+EXPECT_QUALITY, EXPECT_QUALITY_FIN = 4, 3
+EXPECT_GROWTH = 3
+EXPECT_SAFETY = 3
+EXPECT_PRICE = 3
+
+# A quality score resting on a single ratio is not a judgement either.
+MIN_QUALITY_PARTS = 2
+
+
 def quality_score(m: dict) -> tuple[float, int]:
-    """How much profit the business earns on the money put into it."""
+    """How much profit the business earns on the money put into it.
+
+    For a bank or insurer, return on *invested capital* is not defined in any
+    useful way and free cash flow is dominated by float and reserve movements:
+    premiums arrive years before claims are paid, so operating cash flow looks
+    enormous and says nothing about the quality of the underwriting. Scoring
+    insurers on those lines put seven of them in the top fourteen. Financials
+    are scored on return on equity instead, and their cash-flow lines are
+    dropped rather than flattered.
+    """
+    is_financial = bool(m.get("is_financial"))
     roic = m.get("roic_5y_avg") if is_num(m.get("roic_5y_avg")) else m.get("roic")
-    return _pillar([
-        interp_score(roic, [(-0.05, 0), (0.05, 30), (0.12, 60), (0.20, 82), (0.35, 100)]),
+    parts = [
         interp_score(m.get("operating_margin"), [(-0.15, 0), (0.0, 35), (0.10, 60), (0.22, 85), (0.35, 100)]),
-        interp_score(m.get("fcf_margin"), [(-0.15, 0), (0.0, 35), (0.08, 60), (0.20, 88), (0.32, 100)]),
-        # Cash conversion catches profit that never turns into money.
-        interp_score(m.get("cash_conversion"), [(0.2, 10), (0.7, 50), (1.0, 80), (1.4, 100)]),
         interp_score(m.get("piotroski_f"), [(2, 5), (4, 35), (6, 65), (8, 90), (9, 100)]),
-    ])
+    ]
+    if is_financial:
+        # Return on equity, banded tighter: 15% on equity is a good bank, not a
+        # merely adequate one, and leverage means the tail is not as long.
+        parts.append(interp_score(m.get("roe"),
+                     [(0.0, 5), (0.06, 30), (0.11, 58), (0.17, 82), (0.28, 100)]))
+        expect = EXPECT_QUALITY_FIN
+    else:
+        parts.append(interp_score(roic,
+                     [(-0.05, 0), (0.05, 30), (0.12, 60), (0.20, 82), (0.35, 100)]))
+        parts.append(interp_score(m.get("fcf_margin"),
+                     [(-0.15, 0), (0.0, 35), (0.08, 60), (0.20, 88), (0.32, 100)]))
+        # Cash conversion catches profit that never turns into money.
+        parts.append(interp_score(m.get("cash_conversion"),
+                     [(0.2, 10), (0.7, 50), (1.0, 80), (1.4, 100)]))
+        expect = EXPECT_QUALITY
+    value, count = _pillar(parts, expect)
+    if count < MIN_QUALITY_PARTS:
+        return NAN, count
+    return value, count
 
 
 def growth_score(m: dict) -> tuple[float, int]:
@@ -105,7 +165,7 @@ def growth_score(m: dict) -> tuple[float, int]:
         # total growth delivered in one jump does not.
         interp_score(m.get("revenue_trend_r2"), [(0.2, 15), (0.5, 45), (0.75, 75), (0.95, 100)]),
         interp_score(m.get("fcf_cagr_5y"), [(-0.15, 0), (0.0, 35), (0.12, 70), (0.30, 100)]),
-    ])
+    ], EXPECT_GROWTH)
 
 
 # A safety score built from one or two surviving sub-scores is not a judgement,
@@ -136,7 +196,7 @@ def safety_score(m: dict) -> tuple[float, int]:
         interp_score(m.get("current_ratio"), [(0.6, 10), (1.0, 40), (1.6, 75), (2.5, 95)]),
         interp_score(m.get("fcf_positive_years"), [(0, 5), (3, 45), (5, 80), (7, 100)]),
         interp_score(m.get("equity_to_assets"), equity_band),
-    ])
+    ], EXPECT_SAFETY)
     if count < MIN_SAFETY_PARTS:
         return NAN, count
     return value, count
@@ -151,7 +211,7 @@ def price_score(m: dict, report=None) -> tuple[float, int]:
         interp_score(m.get("fcf_yield"), [(-0.02, 5), (0.0, 20), (0.03, 45), (0.06, 72), (0.12, 100)]),
         interp_score(mos, [(-0.60, 0), (-0.30, 25), (0.0, 55), (0.30, 85), (0.60, 100)]),
     ]
-    score, count = _pillar(parts)
+    score, count = _pillar(parts, EXPECT_PRICE)
     relative = getattr(report, "relative", None)
     percentile = getattr(relative, "composite_percentile", None) if relative else None
     if is_num(percentile):
@@ -177,7 +237,11 @@ def plain_language(m: dict, report=None) -> dict[str, str]:
 
     roic = m.get("roic_5y_avg") if is_num(m.get("roic_5y_avg")) else m.get("roic")
     operating = m.get("operating_margin")
-    if is_num(roic) and roic > 0:
+    roe = m.get("roe")
+    if bool(m.get("is_financial")) and is_num(roe) and roe > 0:
+        says["quality"] = (f"Earns about ${roe * 100:.0f} a year for every $100 of "
+                           "shareholders' money in the business.")
+    elif is_num(roic) and roic > 0:
         says["quality"] = (f"Turns every $100 invested in the business into "
                            f"${roic * 100:.0f} of profit a year.")
     elif is_num(operating) and operating < 0:

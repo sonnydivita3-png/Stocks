@@ -104,6 +104,35 @@
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .vd-sugg-more { padding: 9px 12px; margin: 0;
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-fold > summary { cursor: pointer; padding: 10px 0;
+    font-size: var(--cds-font-size-body); }
+  .vd-fold > summary:hover { color: var(--color-fg); }
+  .vd-value { display: grid; gap: 4px; padding: var(--cds-pad-sm) 0;
+    border-top: 1px solid var(--color-border-line);
+    border-bottom: 1px solid var(--color-border-line); }
+  .vd-value-line { display: grid; grid-template-columns: 1fr auto; column-gap: var(--cds-pad-sm);
+    align-items: baseline; }
+  .vd-value-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-value-num { font-variant-numeric: tabular-nums; }
+  .vd-value-note { grid-column: 1 / -1; font-size: var(--cds-font-size-caption);
+    color: var(--color-fg-muted); }
+  .vd-more { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap;
+    gap: var(--cds-pad-sm); padding-top: var(--cds-pad-xs); }
+  .vd-more button { padding: 8px 16px; font: inherit;
+    font-size: var(--cds-font-size-body); cursor: pointer;
+    background: transparent; color: var(--color-fg);
+    border: 1px solid var(--color-fg); border-radius: var(--cds-radius); }
+  .vd-more button:hover { background: var(--color-panel); }
+  .vd-more-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-zoom { display: flex; align-items: center; gap: var(--cds-pad-xs);
+    margin-bottom: var(--cds-pad-sm); flex-wrap: wrap; }
+  .vd-zoom-hint { flex: 1 1 14rem; font-size: var(--cds-font-size-caption);
+    color: var(--color-fg-muted); }
+  .vd-zoom button { min-width: 2.25rem; padding: 6px 10px; font: inherit;
+    font-size: var(--cds-font-size-caption); cursor: pointer;
+    background: transparent; color: var(--color-fg);
+    border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+  .vd-zoom button:hover { background: var(--color-panel); }
   .vd-miss { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: 0; }
   .vd-detail { display: grid; gap: var(--cds-gap-md); }
@@ -205,6 +234,12 @@
         <span>How much it owes, and whether it could survive a bad year.</span></div>
       <div class="vd-pillar"><b>Price</b>
         <span>Whether today's share price looks sensible for what the business earns.</span></div>
+      <div class="vd-pillar"><b>Fair value estimate</b>
+        <span>What the share looks worth on the cash the business is likely to produce,
+        next to what it costs today. An estimate, not a target.</span></div>
+      <div class="vd-pillar"><b>Return above Treasury</b>
+        <span>How much more per year you would earn at today's price than by lending the
+        money to the US government, if the business performs as its history suggests.</span></div>
       <div class="vd-pillar"><b>Not yet profitable</b>
         <span>A label on companies still making a loss. Their price score is weak or missing,
         because there are no profits to value.</span></div>
@@ -267,7 +302,10 @@
     <p class="vd-note"><b>Check what industry they are in before reading too much into the
       order.</b> When conditions favour one industry, a screen like this will rank much of
       that industry highly all at once &mdash; which is a bet on the industry, not on the
-      individual companies. The full table below shows each one&rsquo;s sector.</p>
+      individual companies. The full table below shows each one&rsquo;s sector. An earlier
+      version of this page was worse than that: insurers filled the top of the list because
+      the scoring rewarded them for the measures they do not report. That is fixed, and
+      the detail is in the notes at the foot of the page.</p>
     <div class="vd-cards" data-draw="top-cards" data-source="companies"></div>
   </section>
 
@@ -298,6 +336,13 @@
     </div>
     <div class="vd-card">
       <div class="vd-plot" data-source="companies">
+        <div class="vd-zoom" data-zoom="scatter">
+          <span class="vd-zoom-hint">Scroll, pinch or drag to explore. Zoom in and more
+            names appear.</span>
+          <button type="button" data-act="out" aria-label="Zoom out">&minus;</button>
+          <button type="button" data-act="in" aria-label="Zoom in">+</button>
+          <button type="button" data-act="reset">Reset</button>
+        </div>
         <div data-draw="scatter" style="min-height: 440px"></div>
         <div class="vd-tip" data-tip="scatter"></div>
       </div>
@@ -306,8 +351,12 @@
 
   <section class="vd-section">
     <h2>Every company examined</h2>
-    <p class="vd-note">Click any column heading to sort. Size is the company's total market
-      value: mega is above $200bn, large above $10bn, mid above $2bn, small above $300m.</p>
+    <p class="vd-note">The whole list, sortable. Size is the company's total market value:
+      mega is above $200bn, large above $10bn, mid above $2bn, small above $300m.</p>
+    <details class="vd-fold">
+      <summary>Open the full table</summary>
+      <p class="vd-note">Click any column heading to sort. Scroll sideways for the
+        valuation columns.</p>
     <div class="vd-card">
       <div class="vd-tablebox">
         <table data-source="companies" data-row-key="symbol">
@@ -326,12 +375,16 @@
               <th data-num data-field="roic_5y"><button type="button">Return on capital</button></th>
               <th data-num data-field="market_cap"><button type="button">Market value</button></th>
               <th data-num data-field="price"><button type="button">Share price</button></th>
+              <th data-num data-field="fair_value"><button type="button">Fair value</button></th>
+              <th data-num data-field="margin_of_safety"><button type="button">Cheap or dear</button></th>
+              <th data-num data-field="implied_erp"><button type="button">Above Treasury</button></th>
             </tr>
           </thead>
           <tbody data-draw="table-body"></tbody>
         </table>
       </div>
     </div>
+    </details>
   </section>
 
   <section class="vd-section">
@@ -370,7 +423,9 @@
     <h3>How each score is built</h3>
     <p><b>Business quality</b> combines return on invested capital averaged over five
       years, operating and free-cash-flow margins, how much reported profit turns into
-      actual cash, and a nine-point accounting health check.</p>
+      actual cash, and a nine-point accounting health check. Banks and insurers are
+      scored on return on equity instead, and their cash-flow lines are ignored
+      &mdash; see below.</p>
     <p><b>Growth</b> combines three- and five-year sales growth, how steady that growth has
       been rather than one good year, and the growth in cash the business generates.</p>
     <p><b>Financial safety</b> combines borrowings against profit, how easily interest is
@@ -383,6 +438,42 @@
     <p>The overall score weights quality 30%, price 25%, growth 25% and safety 20%. Market
       momentum is shown separately and deliberately left out of the overall score: it
       describes what the share price has been doing, not whether the business is sound.</p>
+
+    <h3>How &ldquo;return above Treasury&rdquo; is worked out</h3>
+    <p>For an ordinary company it comes from a reverse discounted-cash-flow: given
+      today's price, what annual return would you earn if the business performs roughly as
+      its own history suggests? Subtracting the yield on a 10-year US Treasury gives the
+      extra you are paid for taking equity risk rather than lending to the government.</p>
+    <p>That calculation cannot be run on a bank, an insurer or a property trust, because
+      free cash flow to the firm is not defined when borrowing is the raw material. They
+      used to show nothing at all here, which quietly removed most of the financial sector
+      from the comparison. The same question is now put to the model that does fit them:
+      residual income for a bank or insurer, the dividend model for a property trust. The
+      card says which was used.</p>
+    <p>Where a share costs more than the model can justify at any sensible required
+      return, the figure reads <em>worse than</em> a number rather than giving a precise
+      one. That boundary is shared by every company past it, so treating it as a
+      measurement would invent agreement that is not there.</p>
+
+    <h3>Why insurers no longer fill the top of the list</h3>
+    <p>The first version of this page put seven insurers in the top fourteen. That was a
+      fault in the scoring, not a finding about insurance. Two things caused it.</p>
+    <p>First, an insurer reports almost none of the lines the quality score is built from.
+      There is no meaningful return on <em>invested capital</em> for an insurer, and its
+      free cash flow is dominated by float: premiums arrive years before claims are paid,
+      so cash pours in and says nothing about whether the underwriting was any good.
+      Scoring an insurer on those lines was scoring it on an accounting convention.
+      Financials are now scored on return on equity, which does mean something for them,
+      and their cash-flow lines are dropped rather than flattered.</p>
+    <p>Second, and worse, the scores averaged whatever measures happened to exist. A
+      company measured on two favourable lines scored higher than one measured honestly on
+      five &mdash; the less that was known about a business, the better it looked. Each
+      score is now pulled toward 50 in proportion to what is missing, so thin evidence
+      produces a middling score rather than a flattering one. Several names that led the
+      first list are now mid-table, which is the point.</p>
+    <p>Industry concentration can still be real rather than a bug. Specialty insurance
+      genuinely has had several strong years. Check the sector column before reading a
+      cluster as a coincidence.</p>
 
     <h3>What it cannot tell you</h3>
     <ul>
@@ -414,6 +505,16 @@
   const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : []; };
   const SIZE_WORD = {mega: 'Mega', large: 'Large', mid: 'Mid', small: 'Small', micro: 'Micro', unknown: '—'};
   const SMALLER = new Set(['small', 'micro']);
+  const dollars = (v) => (v == null || !isFinite(v)) ? '\u2014'
+    : '$' + (Math.abs(v) >= 1000 ? d3.format(',.0f')(v) : d3.format(',.2f')(v));
+  // The Treasury yield every "return above Treasury" figure is measured against.
+  // Falls back to naming the benchmark when the regime data has not loaded yet.
+  const riskFreePhrase = () => {
+    const row = rowsOf('regime_readings')
+      .find((x) => /10-year/i.test(String(x.measure || '')));
+    const v = row ? num(row.value) : null;
+    return v == null ? 'a 10-year Treasury' : fmtN(v) + '% on a 10-year Treasury';
+  };
 
   const gradeColor = (g) => g === 'A' ? 'var(--color-ok)'
     : g === 'B' ? 'var(--color-ok)' : g === 'C' ? 'var(--color-fg)'
@@ -470,6 +571,67 @@
   };
 
   const companyCard = (row) => {
+  // What the business looks worth, and what you are paid for owning it instead
+  // of a government bond. Both are estimates from the filings and both are
+  // withheld rather than guessed when the history is too short to support one.
+  const valueBlock = (row) => {
+    const box = document.createElement('div'); box.className = 'vd-value';
+    const fair = num(row.fair_value);
+    const px = num(row.price);
+    const mos = num(row.margin_of_safety);
+    const erp = num(row.implied_erp);
+    const ret = num(row.implied_return);
+
+    const line = (label, value, note, tone) => {
+      const d = document.createElement('div'); d.className = 'vd-value-line';
+      const l = document.createElement('span'); l.className = 'vd-value-label';
+      l.textContent = label;
+      const v = document.createElement('b'); v.className = 'vd-value-num';
+      v.textContent = value;
+      if (tone) v.style.color = tone;
+      d.append(l, v);
+      if (note) {
+        const n = document.createElement('span'); n.className = 'vd-value-note';
+        n.textContent = note; d.appendChild(n);
+      }
+      return d;
+    };
+
+    if (fair != null && px != null) {
+      const gap = (fair - px) / px;
+      const note = Math.abs(gap) < 0.02
+        ? 'about what it trades for today (' + dollars(px) + ')'
+        : gap > 0
+          ? fmtPct(gap) + ' above today\u2019s ' + dollars(px) + ' \u2014 looks cheap'
+          : fmtPct(-gap) + ' below today\u2019s ' + dollars(px) + ' \u2014 looks dear';
+      box.appendChild(line('Fair value estimate', dollars(fair), note,
+        gap > 0.02 ? 'var(--color-ok)' : gap < -0.02 ? 'var(--color-warn)' : null));
+    } else {
+      box.appendChild(line('Fair value estimate', '\u2014',
+        'too little profit history to put a value on it'));
+    }
+
+    if (erp != null) {
+      // A floored figure is the boundary of what the model can express, not a
+      // measurement. Several expensive companies share the same floor, so
+      // printing it as a precise number would invent agreement between them.
+      const floored = String(row.implied_is_floor).toLowerCase() === 'true';
+      const value = floored ? 'worse than ' + fmtPctS(erp) : fmtPctS(erp);
+      const note = floored
+        ? 'costs more than the valuation model can justify at any sensible return'
+        : (ret != null ? fmtPctS(ret) + ' a year expected in total, ' : '')
+          + 'against ' + riskFreePhrase()
+          + (row.implied_method ? ' \u00b7 ' + row.implied_method : '');
+      box.appendChild(line('Return above Treasury', value, note,
+        floored ? 'var(--color-warn)'
+          : erp >= 0.03 ? 'var(--color-ok)' : erp < 0 ? 'var(--color-warn)' : null));
+    } else {
+      box.appendChild(line('Return above Treasury', '\u2014',
+        'not estimable from its filings'));
+    }
+    return box;
+  };
+
     const card = document.createElement('div'); card.className = 'vd-co';
     const top = document.createElement('div'); top.className = 'vd-co-top';
     const sym = document.createElement('span'); sym.className = 'vd-co-sym'; sym.textContent = row.symbol;
@@ -503,8 +665,42 @@
       if (!text) return;
       const s = document.createElement('span'); s.textContent = text; says.appendChild(s);
     });
-    card.append(top, name, what, scores, says);
+    card.append(top, name, what, scores, valueBlock(row), says);
     return card;
+  };
+
+  // Ten is enough to read in one sitting. The rest are a click away rather
+  // than a wall of cards nobody scrolls past.
+  const PAGE = 10;
+  const shown = {'top-cards': PAGE, 'growth-cards': PAGE};
+
+  const cardList = (el, id, ranked) => {
+    el.replaceChildren();
+    const limit = shown[id];
+    ranked.slice(0, limit).forEach((r) => el.appendChild(companyCard(r)));
+    if (ranked.length <= limit) {
+      if (ranked.length > PAGE) {
+        el.appendChild(moreBar('Show fewer', 'Showing all ' + ranked.length + '.', () => {
+          shown[id] = PAGE; dash.draw(id);
+        }));
+      }
+      return;
+    }
+    const left = ranked.length - limit;
+    const step = Math.min(PAGE, left);
+    el.appendChild(moreBar('Show ' + step + ' more',
+      'Showing ' + limit + ' of ' + ranked.length + '.', () => {
+        shown[id] = limit + step; dash.draw(id);
+      }));
+  };
+
+  const moreBar = (label, note, onClick) => {
+    const bar = document.createElement('div'); bar.className = 'vd-more';
+    const b = document.createElement('button'); b.type = 'button';
+    b.textContent = label; b.addEventListener('click', onClick);
+    const n = document.createElement('span'); n.className = 'vd-more-note'; n.textContent = note;
+    bar.append(b, n);
+    return bar;
   };
 
   dash.draw('top-cards', (el) => {
@@ -512,11 +708,9 @@
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    rowsOf('companies')
+    cardList(el, 'top-cards', rowsOf('companies')
       .filter((r) => num(r.overall) != null)
-      .sort((a, b) => num(b.overall) - num(a.overall))
-      .slice(0, 9)
-      .forEach((r) => el.appendChild(companyCard(r)));
+      .sort((a, b) => num(b.overall) - num(a.overall)));
   });
 
   dash.draw('growth-cards', (el) => {
@@ -524,13 +718,11 @@
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    rowsOf('companies')
+    cardList(el, 'growth-cards', rowsOf('companies')
       .filter((r) => SMALLER.has(r.size) || (num(r.market_cap) != null && num(r.market_cap) < 1e10))
       .filter((r) => num(r.growth) != null && num(r.overall) != null)
       .sort((a, b) => (num(b.growth) * 0.6 + num(b.overall) * 0.4)
-                    - (num(a.growth) * 0.6 + num(a.overall) * 0.4))
-      .slice(0, 9)
-      .forEach((r) => el.appendChild(companyCard(r)));
+                    - (num(a.growth) * 0.6 + num(a.overall) * 0.4)));
   });
 
   const tip = (box, frag, x, y) => {
@@ -547,69 +739,173 @@
     return f;
   };
 
+  // Held at module scope so the zoom buttons always drive the chart that is
+  // on screen, not whichever one existed when they were first wired up.
+  let scatterSvg = null, scatterZoom = null;
+
   dash.draw('scatter', (el) => {
     const d = dash.data('companies');
     el.replaceChildren();
+    scatterSvg = scatterZoom = null;
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
     const rows = rowsOf('companies').map((r) => ({
       symbol: r.symbol, name: r.name, size: r.size, grade: r.grade,
       q: num(r.quality), p: num(r.price_score), cap: num(r.market_cap),
-      overall: num(r.overall),
+      overall: num(r.overall), fair: num(r.fair_value), px: num(r.price),
+      erp: num(r.implied_erp),
     })).filter((r) => r.q != null && r.p != null && r.cap != null);
     if (!rows.length) return;
 
     const width = el.clientWidth || 640, height = 440;
     const m = {top: 16, right: 20, bottom: 44, left: 52};
     const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', height)
-      .attr('viewBox', `0 0 ${width} ${height}`);
-    const x = d3.scaleLinear([0, 100], [m.left, width - m.right]);
-    const y = d3.scaleLinear([0, 100], [height - m.bottom, m.top]);
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .style('touch-action', 'none').style('cursor', 'grab');
+    const x0 = d3.scaleLinear([0, 100], [m.left, width - m.right]);
+    const y0 = d3.scaleLinear([0, 100], [height - m.bottom, m.top]);
     const r = d3.scaleSqrt(d3.extent(rows, (q) => q.cap), [4, 24]);
 
-    d3.range(0, 101, 20).forEach((t) => {
-      svg.append('line').attr('x1', x(t)).attr('x2', x(t)).attr('y1', m.top).attr('y2', height - m.bottom)
-        .attr('stroke', 'var(--cds-chart-grid)');
-      svg.append('text').attr('x', x(t)).attr('y', height - m.bottom + 15).attr('text-anchor', 'middle')
-        .attr('font-size', 10).attr('fill', 'var(--color-fg-muted)').text(t);
-      svg.append('line').attr('x1', m.left).attr('x2', width - m.right).attr('y1', y(t)).attr('y2', y(t))
-        .attr('stroke', 'var(--cds-chart-grid)');
-      svg.append('text').attr('x', m.left - 7).attr('y', y(t) + 3.5).attr('text-anchor', 'end')
-        .attr('font-size', 10).attr('fill', 'var(--color-fg-muted)').text(t);
-    });
-    [[60, 'v'], [50, 'h']].forEach(([at, dir]) => {
-      svg.append('line')
-        .attr('x1', dir === 'v' ? x(at) : m.left).attr('x2', dir === 'v' ? x(at) : width - m.right)
-        .attr('y1', dir === 'v' ? m.top : y(at)).attr('y2', dir === 'v' ? height - m.bottom : y(at))
-        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3');
-    });
+    // Everything that moves under the zoom lives inside one clipped group, so
+    // points never spill over the axes when panned.
+    const clipId = 'vd-clip-' + Math.random().toString(36).slice(2, 9);
+    svg.append('clipPath').attr('id', clipId).append('rect')
+      .attr('x', m.left).attr('y', m.top)
+      .attr('width', Math.max(0, width - m.left - m.right))
+      .attr('height', Math.max(0, height - m.top - m.bottom));
+
+    const gGrid = svg.append('g');
+    const gRef = svg.append('g').attr('clip-path', `url(#${clipId})`);
+    const gPlot = svg.append('g').attr('clip-path', `url(#${clipId})`);
+    const gLabel = svg.append('g').attr('clip-path', `url(#${clipId})`)
+      .attr('pointer-events', 'none');
+
     svg.append('text').attr('x', (m.left + width - m.right) / 2).attr('y', height - 7)
       .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)')
-      .text('Business quality score →');
+      .text('Business quality score \u2192');
     svg.append('text').attr('transform', `translate(12, ${(m.top + height - m.bottom) / 2}) rotate(-90)`)
       .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)')
-      .text('Price score →');
+      .text('Price score \u2192');
 
     const tipBox = el.parentElement.querySelector('[data-tip="scatter"]');
-    rows.forEach((p) => {
-      const smaller = SMALLER.has(p.size) || p.cap < 1e10;
-      const col = smaller ? dash.colors[0] : dash.colors[1];
-      svg.append('circle').attr('cx', x(p.q)).attr('cy', y(p.p)).attr('r', r(p.cap))
-        .attr('fill', col).attr('fill-opacity', .32).attr('stroke', col).attr('stroke-width', 1.5)
-        .on('mousemove', (ev) => {
-          const b = el.parentElement.getBoundingClientRect();
-          tip(tipBox, tipNode(p.symbol + ' · ' + p.name, [
-            'Grade ' + (p.grade || '—') + ' · overall ' + (p.overall == null ? '—' : fmtI(p.overall)),
-            'Quality ' + fmtI(p.q) + ' · price ' + fmtI(p.p),
-            'Market value ' + money(p.cap),
-          ]), ev.clientX - b.left, ev.clientY - b.top);
-        })
-        .on('mouseleave', () => { tipBox.style.opacity = 0; });
-    });
-    rows.filter((p) => p.q >= 60 && p.p >= 50).slice(0, 14).forEach((p) => {
-      svg.append('text').attr('x', x(p.q)).attr('y', y(p.p) - r(p.cap) - 4)
+    const dots = gPlot.selectAll('circle').data(rows).join('circle')
+      .attr('fill', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
+      .attr('stroke', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
+      .attr('fill-opacity', .32)
+      .on('mousemove', (ev, p) => {
+        const b = el.parentElement.getBoundingClientRect();
+        const lines = [
+          'Grade ' + (p.grade || '\u2014') + ' \u00b7 overall '
+            + (p.overall == null ? '\u2014' : fmtI(p.overall)),
+          'Quality ' + fmtI(p.q) + ' \u00b7 price ' + fmtI(p.p),
+          'Market value ' + money(p.cap),
+        ];
+        if (p.fair != null && p.px != null) {
+          lines.push('Fair value ' + dollars(p.fair) + ' vs ' + dollars(p.px) + ' today');
+        }
+        if (p.erp != null) lines.push('Return above Treasury ' + fmtPctS(p.erp));
+        tip(tipBox, tipNode(p.symbol + ' \u00b7 ' + p.name, lines),
+            ev.clientX - b.left, ev.clientY - b.top);
+      })
+      .on('mouseleave', () => { tipBox.style.opacity = 0; });
+
+    // Zoomed in, the crowd thins out, so more names can be shown without
+    // turning into a smear. Zoomed out, only the corner worth reading is named.
+    const labelsFor = (zx, zy, k) => {
+      const inView = (p) => {
+        const px = zx(p.q), py = zy(p.p);
+        return px >= m.left - 20 && px <= width - m.right + 20
+            && py >= m.top - 20 && py <= height - m.bottom + 20;
+      };
+      if (k < 1.8) {
+        return rows.filter((p) => p.q >= 60 && p.p >= 50 && inView(p))
+          .sort((a, b) => (b.overall || 0) - (a.overall || 0)).slice(0, 14);
+      }
+      return rows.filter(inView).sort((a, b) => b.cap - a.cap)
+        .slice(0, Math.min(80, Math.round(14 * k * k)));
+    };
+
+    const render = (t) => {
+      const zx = t.rescaleX(x0), zy = t.rescaleY(y0);
+      const k = t.k;
+
+      gGrid.selectAll('*').remove();
+      const step = k >= 4 ? 5 : k >= 2 ? 10 : 20;
+      const ticks = (scale, lo, hi) => d3.range(Math.ceil(lo / step) * step, hi + 0.001, step);
+      ticks(zx, Math.max(0, zx.invert(m.left)), Math.min(100, zx.invert(width - m.right)))
+        .forEach((tv) => {
+          gGrid.append('line').attr('x1', zx(tv)).attr('x2', zx(tv))
+            .attr('y1', m.top).attr('y2', height - m.bottom)
+            .attr('stroke', 'var(--cds-chart-grid)');
+          gGrid.append('text').attr('x', zx(tv)).attr('y', height - m.bottom + 15)
+            .attr('text-anchor', 'middle').attr('font-size', 10)
+            .attr('fill', 'var(--color-fg-muted)').text(tv);
+        });
+      ticks(zy, Math.max(0, zy.invert(height - m.bottom)), Math.min(100, zy.invert(m.top)))
+        .forEach((tv) => {
+          gGrid.append('line').attr('x1', m.left).attr('x2', width - m.right)
+            .attr('y1', zy(tv)).attr('y2', zy(tv))
+            .attr('stroke', 'var(--cds-chart-grid)');
+          gGrid.append('text').attr('x', m.left - 7).attr('y', zy(tv) + 3.5)
+            .attr('text-anchor', 'end').attr('font-size', 10)
+            .attr('fill', 'var(--color-fg-muted)').text(tv);
+        });
+
+      gRef.selectAll('*').remove();
+      gRef.append('line').attr('x1', zx(60)).attr('x2', zx(60))
+        .attr('y1', m.top).attr('y2', height - m.bottom)
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3');
+      gRef.append('line').attr('x1', m.left).attr('x2', width - m.right)
+        .attr('y1', zy(50)).attr('y2', zy(50))
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3');
+
+      // Positions move with the zoom; the circles themselves keep their size,
+      // so a bubble still means the same market value at every zoom level.
+      dots.attr('cx', (p) => zx(p.q)).attr('cy', (p) => zy(p.p))
+        .attr('r', (p) => r(p.cap)).attr('stroke-width', 1.5);
+
+      gLabel.selectAll('text').data(labelsFor(zx, zy, k), (p) => p.symbol)
+        .join('text')
+        .attr('x', (p) => zx(p.q)).attr('y', (p) => zy(p.p) - r(p.cap) - 4)
         .attr('text-anchor', 'middle').attr('font-size', 10)
-        .attr('fill', 'var(--color-fg-muted)').text(p.symbol);
+        .attr('fill', 'var(--color-fg-muted)').text((p) => p.symbol);
+    };
+
+    // d3 comes from the page runtime, not from a tag of ours, so the zoom
+    // module may not be in the bundle. Without it the chart still draws; it
+    // just does not pan, and the controls are taken away rather than left
+    // there doing nothing.
+    const bar = el.parentElement.querySelector('[data-zoom="scatter"]');
+    if (typeof d3.zoom !== 'function') {
+      if (bar) bar.hidden = true;
+      render(d3.zoomIdentity || {k: 1, rescaleX: (sc) => sc, rescaleY: (sc) => sc});
+      return;
+    }
+    if (bar) bar.hidden = false;
+
+    const zoom = d3.zoom().scaleExtent([1, 12])
+      .translateExtent([[m.left, m.top], [width - m.right, height - m.bottom]])
+      .extent([[m.left, m.top], [width - m.right, height - m.bottom]])
+      .on('start', () => svg.style('cursor', 'grabbing'))
+      .on('end', () => svg.style('cursor', 'grab'))
+      .on('zoom', (ev) => { tipBox.style.opacity = 0; render(ev.transform); });
+    svg.call(zoom);
+    render(d3.zoomIdentity);
+
+    scatterSvg = svg; scatterZoom = zoom;
+  });
+
+  document.querySelectorAll('[data-zoom="scatter"] button').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (!scatterSvg || !scatterZoom) return;
+      const act = b.getAttribute('data-act');
+      if (act === 'reset') {
+        scatterSvg.transition().duration(250)
+          .call(scatterZoom.transform, d3.zoomIdentity);
+      } else {
+        scatterSvg.transition().duration(200)
+          .call(scatterZoom.scaleBy, act === 'in' ? 1.6 : 1 / 1.6);
+      }
     });
   });
 
@@ -798,11 +1094,15 @@
       ['Dividend yield', num(row.dividend_yield) == null ? '—' : fmtPct(num(row.dividend_yield))],
       ['Estimated fair value', num(row.fair_value) == null ? '—' : '$' + fmtN(num(row.fair_value))],
       ['Price vs that estimate', num(row.margin_of_safety) == null ? '—' : fmtPctS(num(row.margin_of_safety))],
+      ['Return above Treasury', num(row.implied_erp) == null ? '—'
+        : (String(row.implied_is_floor).toLowerCase() === 'true' ? 'worse than ' : '')
+          + fmtPctS(num(row.implied_erp))],
+      ['Valued by', row.implied_method || '—'],
       ['Share price trend (not in the grade)',
        num(row.momentum) == null ? '—' : fmtI(num(row.momentum)) + ' / 100'],
     ]));
     cols.append(left, right);
-    wrap.append(top, name, what, rank, cols);
+    wrap.append(top, name, what, rank, valueBlock(row), cols);
     el.appendChild(wrap);
   });
 
@@ -842,6 +1142,7 @@
     ['overall', 'int'], ['quality', 'int'], ['growth', 'int'], ['safety', 'int'],
     ['price_score', 'int'], ['rev_cagr_3y', 'signed'], ['roic_5y', 'pct'],
     ['market_cap', 'money'], ['price', 'price'],
+    ['fair_value', 'price'], ['margin_of_safety', 'signed'], ['implied_erp', 'signed'],
   ];
   const cellFor = (kind, raw) => {
     if (kind === 'text') return {text: raw == null || raw === '' ? '—' : String(raw)};

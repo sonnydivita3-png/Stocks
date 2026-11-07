@@ -63,7 +63,8 @@ COLUMNS = [
     "operating_margin", "fcf_margin", "net_debt_ebitda", "piotroski",
     "altman_z", "rev_cagr_3y", "rev_cagr_5y", "rev_trend_r2", "pe", "ps",
     "fcf_yield", "dividend_yield", "fair_value", "margin_of_safety",
-    "implied_return", "implied_erp", "confidence", "from_52w_high",
+    "implied_return", "implied_erp", "implied_method", "implied_is_floor",
+    "confidence", "from_52w_high",
     "momentum_12_1", "vol63", "years_of_data",
 ]
 
@@ -159,6 +160,10 @@ def analyse(symbol: str) -> dict | None:
         "margin_of_safety": num(report.margin_of_safety),
         "implied_return": num(report.implied_return),
         "implied_erp": num(report.implied_equity_premium),
+        # Which model produced it, and whether it is a ceiling rather than an
+        # estimate. A reader has to be told the difference.
+        "implied_method": report.implied_return_method,
+        "implied_is_floor": bool(report.implied_return_is_floor),
         "confidence": report.confidence,
         "from_52w_high": num(technicals.get("pct_from_52w_high")),
         "momentum_12_1": num(technicals.get("momentum_12_1")),

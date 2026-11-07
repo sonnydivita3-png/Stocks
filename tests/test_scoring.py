@@ -202,3 +202,78 @@ class TestSafetyEvidence:
         bank = safety_score(dict(base, is_financial=1.0))[0]
         maker = safety_score(dict(base, is_financial=0.0))[0]
         assert bank > maker
+
+
+class TestThinCoverageIsNotRewarded:
+    """A company we barely measure must not outrank one we measure fully.
+
+    Averaging only the sub-scores that exist meant two flattering readings beat
+    five honest ones. Pillars are now shrunk toward 50 by whatever is missing.
+    """
+
+    def test_shrinkage_pulls_a_thin_pillar_toward_neutral(self):
+        from stocklab.scoring import NEUTRAL, _pillar
+        thin, n = _pillar([100.0, 100.0], expect=4)
+        assert n == 2
+        assert thin == pytest.approx((2 * 100.0 + 2 * NEUTRAL) / 4)
+        assert thin < 100.0
+
+    def test_full_coverage_is_the_plain_mean(self):
+        from stocklab.scoring import _pillar
+        value, n = _pillar([90.0, 70.0, 80.0, 60.0], expect=4)
+        assert n == 4
+        assert value == pytest.approx(75.0)
+
+    def test_extra_sub_scores_are_never_penalised(self):
+        from stocklab.scoring import _pillar
+        value, n = _pillar([80.0, 80.0, 80.0, 80.0, 80.0], expect=3)
+        assert n == 5
+        assert value == pytest.approx(80.0)
+
+    def test_fully_measured_beats_thinly_measured_at_equal_readings(self):
+        from stocklab.scoring import quality_score
+        thin = quality_score({"operating_margin": 0.40, "piotroski_f": 8})
+        full = quality_score({"operating_margin": 0.40, "piotroski_f": 8,
+                              "roic_5y_avg": 0.30, "fcf_margin": 0.28,
+                              "cash_conversion": 1.2})
+        assert full[1] > thin[1]
+        assert full[0] > thin[0]
+
+    def test_one_ratio_is_not_a_quality_score(self):
+        from stocklab.scoring import MIN_QUALITY_PARTS, quality_score
+        value, count = quality_score({"operating_margin": 0.45})
+        assert count < MIN_QUALITY_PARTS
+        assert math.isnan(value)
+
+
+class TestInsurersAreNotFlatteredByFloat:
+    """Premiums arrive years before claims, so an insurer's operating cash flow
+    is float, not earning power. Scoring it as free cash flow put seven
+    insurers in the top fourteen of a 515-company run."""
+
+    INSURER = {"is_financial": 1.0, "operating_margin": 0.50, "piotroski_f": 7,
+               "roe": 0.18, "fcf_margin": 0.95, "cash_conversion": 3.0}
+
+    def test_cash_flow_lines_are_ignored_for_financials(self):
+        from stocklab.scoring import quality_score
+        with_cash = quality_score(self.INSURER)
+        without = quality_score({k: v for k, v in self.INSURER.items()
+                                 if k not in ("fcf_margin", "cash_conversion")})
+        assert with_cash == without
+
+    def test_return_on_equity_drives_the_financial_score(self):
+        from stocklab.scoring import quality_score
+        good = quality_score(dict(self.INSURER, roe=0.25))[0]
+        poor = quality_score(dict(self.INSURER, roe=0.04))[0]
+        assert good > poor + 15
+
+    def test_an_insurer_no_longer_scores_near_perfect_on_two_lines(self):
+        from stocklab.scoring import quality_score
+        value, _ = quality_score({"is_financial": 1.0, "operating_margin": 0.50})
+        assert math.isnan(value) or value < 85
+
+    def test_the_plain_sentence_uses_equity_not_invested_capital(self):
+        from stocklab.scoring import plain_language
+        says = plain_language(self.INSURER)
+        assert "shareholders' money" in says["quality"]
+        assert "Not enough history" not in says["quality"]

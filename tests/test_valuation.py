@@ -276,3 +276,61 @@ class TestMetricsFromFixture:
         result = earnings_power_value(healthy_company, metrics, 0.09)
         assert result.epv_per_share > 0
         assert result.interpretation
+
+
+class TestImpliedReturnForModelsOtherThanDCF:
+    """A reverse DCF cannot be run on a bank, an insurer or a REIT: free cash
+    flow to the firm is undefined when debt is the raw material. That left 77
+    of 78 financials in a 515-company run with no expected-return figure while
+    every operating company had one. The fix inverts whichever model is
+    primary for them instead."""
+
+    @staticmethod
+    def _gordon(d1, growth):
+        """A toy model: value falls as the required return rises, undefined
+        at or below the growth rate."""
+        def value_at(rate):
+            return float('nan') if rate <= growth else d1 / (rate - growth)
+        return value_at
+
+    def test_solves_the_rate_where_model_value_meets_price(self):
+        from stocklab.valuation.residual_income import solve_implied_rate
+        # D1 = 3, g = 2%, price 50 -> rate = 3/50 + 0.02 = 8%
+        rate, floored = solve_implied_rate(self._gordon(3.0, 0.02), 50.0)
+        assert not floored
+        assert rate == pytest.approx(0.08, abs=1e-3)
+
+    def test_walks_past_a_singularity_below_the_growth_rate(self):
+        """Starting the search at 0.5% would read nan and give up, which is
+        how REITs silently lost their expected return."""
+        from stocklab.valuation.residual_income import solve_implied_rate
+        rate, _ = solve_implied_rate(self._gordon(4.0, 0.06), 80.0, low=0.005)
+        assert not math.isnan(rate)
+        assert rate == pytest.approx(0.11, abs=1e-3)
+
+    def test_a_price_above_what_the_model_can_justify_is_flagged_as_a_floor(self):
+        from stocklab.valuation.residual_income import solve_implied_rate
+        # At the lowest rate the model answers at, value is still under price.
+        rate, floored = solve_implied_rate(self._gordon(0.01, 0.02), 1000.0)
+        assert floored
+        assert rate > 0.02
+
+    def test_no_rate_is_invented_when_the_model_cannot_be_solved(self):
+        from stocklab.valuation.residual_income import solve_implied_rate
+        rate, floored = solve_implied_rate(lambda _: float('nan'), 50.0)
+        assert math.isnan(rate)
+        assert not floored
+
+    def test_a_non_positive_price_yields_nothing(self):
+        from stocklab.valuation.residual_income import solve_implied_rate
+        assert math.isnan(solve_implied_rate(self._gordon(3.0, 0.02), 0.0)[0])
+
+    def test_residual_income_inverts_to_the_rate_it_was_valued_at(self):
+        """Round trip: value at 9%, then ask what rate explains that value."""
+        from stocklab.valuation import residual_income
+        metrics = {"book_value_per_share": 40.0, "roe": 0.16, "payout_ratio": 0.3}
+        value = residual_income.from_metrics(metrics, 0.09).value_per_share
+        assert value > 0
+        rate, floored = residual_income.implied_cost_of_equity(metrics, value)
+        assert not floored
+        assert rate == pytest.approx(0.09, abs=2e-3)

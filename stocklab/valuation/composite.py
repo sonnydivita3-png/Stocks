@@ -63,6 +63,13 @@ class ValuationReport:
     scenarios: pd.DataFrame
     relative: object
     notes: list[str] = field(default_factory=list)
+    # Which model produced ``implied_return``: a reverse DCF for operating
+    # companies, residual income for financials and REITs, "" when neither
+    # could be solved. ``is_floor`` marks a rate that is a ceiling on the
+    # return rather than an estimate of it -- the share is dearer than the
+    # model can express.
+    implied_return_method: str = ""
+    implied_return_is_floor: bool = False
 
     @property
     def applicable_models(self) -> list[ModelEstimate]:
@@ -224,6 +231,27 @@ def value(
     reverse = (reverse_analyse(assumptions, price, metrics)
                if not (f.is_financial or f.is_reit) else None)
     implied_return = reverse.implied_return if reverse is not None else NAN
+    implied_method = "reverse DCF" if is_num(implied_return) else ""
+    implied_is_floor = False
+    if not is_num(implied_return):
+        # Banks, insurers and REITs get no reverse DCF, which left three
+        # quarters of the financial sector with no expected return at all
+        # while every operating company had one. Invert whichever model is the
+        # primary one for them instead: residual income for a financial, the
+        # dividend model for a REIT, where the distribution *is* the return.
+        # Inverting the wrong one is worse than inverting none -- residual
+        # income on a REIT says it is dear while the blend says it is cheap,
+        # because depreciation guts a REIT's book-based return on equity.
+        if f.is_reit and ddm_applicable:
+            solved, implied_is_floor = residual_income.solve_implied_rate(
+                lambda rate: ddm.from_metrics(metrics, rate, is_reit=True).value_per_share,
+                price)
+            if is_num(solved):
+                implied_return, implied_method = solved, "dividend discount"
+        elif ri_applicable:
+            solved, implied_is_floor = residual_income.implied_cost_of_equity(metrics, price)
+            if is_num(solved):
+                implied_return, implied_method = solved, "residual income"
     implied_premium = (implied_return - risk_free) if is_num(implied_return) else NAN
 
     # ---- confidence -------------------------------------------------------
@@ -269,6 +297,7 @@ def value(
         margin_of_safety=safe_div(fair, price) - 1.0 if is_num(fair) else NAN,
         dispersion=dispersion, confidence=confidence,
         implied_return=implied_return, implied_equity_premium=implied_premium,
+        implied_return_method=implied_method, implied_return_is_floor=implied_is_floor,
         risk_free=risk_free, cost_of_capital=coc, reverse=reverse,
         scenarios=(scenario_set(assumptions)
                    if not (f.is_financial or f.is_reit) else pd.DataFrame()),

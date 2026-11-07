@@ -120,6 +120,90 @@ def residual_income_value(
     )
 
 
+def implied_cost_of_equity(metrics: dict, price: float, *,
+                           low: float = 0.005, high: float = 1.0,
+                           tol: float = 1e-4, max_iter: int = 80,
+                           **kwargs) -> tuple[float, bool]:
+    """The required return at which this model agrees with today's price.
+
+    A reverse DCF asks "what must the business do to justify this price?" and
+    answers in a rate. It cannot be run on a bank or an insurer: free cash flow
+    to the firm is undefined when debt is the raw material, so those companies
+    had no expected-return figure at all while every operating company did.
+
+    The residual income model is the right model for them, and the same
+    question can be put to it. Value falls monotonically as the required return
+    rises, so the rate where model value meets market price is found by
+    bisection. Subtracting the risk-free rate puts a bank on the same footing
+    as everything else on the page.
+
+    Returns ``(rate, is_floor)``. ``is_floor`` is True when the price is above
+    what the model produces even at ``low`` -- the share is dearer than the
+    model can express, and the rate returned is a ceiling on the return, not an
+    estimate of it. ``(nan, False)`` when the model cannot be solved at all.
+    """
+    def value_at(rate: float) -> float:
+        try:
+            return from_metrics(metrics, rate, **kwargs).value_per_share
+        except Exception:
+            return NAN
+
+    return solve_implied_rate(value_at, price, low=low, high=high,
+                              tol=tol, max_iter=max_iter)
+
+
+def solve_implied_rate(value_at, price: float, *, low: float = 0.005,
+                       high: float = 1.0, tol: float = 1e-4,
+                       max_iter: int = 80) -> tuple[float, bool]:
+    """Bisect a monotonically decreasing value function for the rate at price.
+
+    ``value_at`` maps a required return to a per-share value. Every discounted
+    model falls as the discount rate rises, so one root exists wherever the
+    price is bracketed. Shared by the residual income and dividend models so
+    both report an expected return on the same basis.
+    """
+    if not is_num(price) or price <= 0:
+        return NAN, False
+
+    lo, hi = float(low), float(high)
+    v_lo, v_hi = value_at(lo), value_at(hi)
+    if not is_num(v_lo):
+        # A Gordon-style model divides by (rate - growth) and blows up below
+        # the terminal growth rate, so the nominal floor can be unusable.
+        # Walk up to the lowest rate the model will actually answer at.
+        for step in range(1, 120):
+            probe = float(low) + step * 0.005
+            if probe >= hi:
+                break
+            candidate = value_at(probe)
+            if is_num(candidate) and candidate > 0:
+                lo, v_lo = probe, candidate
+                break
+    if not is_num(v_lo) or not is_num(v_hi):
+        return NAN, False
+    if v_lo < price:
+        # Even at a near-zero required return the model says it is worth less
+        # than this. Report the boundary and say so rather than invent a rate.
+        return lo, True
+    if v_hi > price:
+        # Worth more than the price at a 100% discount rate: book value or ROE
+        # is not believable, not a bargain.
+        return NAN, False
+
+    for _ in range(max_iter):
+        mid = (lo + hi) / 2.0
+        v = value_at(mid)
+        if not is_num(v):
+            return NAN, False
+        if abs(v - price) <= tol * price:
+            return mid, False
+        if v > price:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0, False
+
+
 def from_metrics(metrics: dict, cost_of_equity: float, **kwargs) -> ResidualIncomeResult:
     """Convenience wrapper driven by the standard metric dictionary."""
     bvps = metrics.get("book_value_per_share")
