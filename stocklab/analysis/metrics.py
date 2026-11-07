@@ -370,8 +370,119 @@ def beneish_m_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
 # --------------------------------------------------------------------------- #
 # the main entry point
 # --------------------------------------------------------------------------- #
+def share_count(f: Fundamentals) -> tuple[float, str, list[str]]:
+    """Best available total share count, and where it came from.
+
+    Three sources, none individually reliable:
+
+    * the **cover page** (``dei:EntityCommonStockSharesOutstanding``) is the
+      most current, but ``companyfacts`` omits dimensional facts, so for a
+      multi-class registrant it returns one class or nothing. Mastercard's
+      cover page reads 122m against 884m diluted shares, which would value the
+      company at a seventh of its market cap;
+    * the **diluted weighted average** is a total across classes and is the
+      denominator of reported EPS, but it is a trailing period average;
+    * **net income divided by diluted EPS** recovers that same denominator even
+      when the share count itself is only tagged dimensionally -- which is the
+      only route that works for some multi-class filers.
+
+    The cover-page figure is used when it corroborates one of the other two
+    (within 15%), since it is the most current; otherwise it is treated as
+    incomplete and a total is used instead.
+    """
+    notes: list[str] = []
+    cover = f.get("shares_outstanding")
+    diluted = f.get("shares_diluted")
+    basic = f.get("shares_basic")
+    issued = f.get("shares_issued")
+
+    implied = NAN
+    eps = f.get("eps_diluted")
+    ni = f.get("net_income")
+    if is_num(eps) and eps != 0 and is_num(ni):
+        candidate = ni / eps
+        if candidate > 0:
+            implied = candidate
+
+    reference = first_finite(diluted, implied, basic)
+    if is_num(cover) and is_num(reference):
+        ratio = cover / reference
+        if 0.85 <= ratio <= 1.15:
+            return float(cover), "cover page", notes
+        notes.append(
+            f"Cover-page share count ({cover/1e6:,.1f}m) differs from the total "
+            f"implied by diluted EPS ({reference/1e6:,.1f}m) by "
+            f"{abs(ratio - 1):.0%}; treating it as a single share class and "
+            "using the diluted total instead."
+        )
+        return float(reference), "diluted total", notes
+    if is_num(reference):
+        return float(reference), "diluted total", notes
+    if is_num(cover):
+        notes.append("Only a cover-page share count is available; for a "
+                     "multi-class issuer this may cover one class only.")
+        return float(cover), "cover page", notes
+    value = first_finite(issued)
+    if is_num(value):
+        return float(value), "shares issued", notes
+    return NAN, "unavailable", ["No usable share count could be determined."]
+
+
+def normalize_split_basis(series: pd.Series, splits: pd.Series | None,
+                          tolerance: float = 0.20) -> pd.Series:
+    """Put a historical per-share series onto one consistent split basis.
+
+    Filings restate comparatives for a split, but only for the two or three
+    years a filing reproduces. Because values are taken from the most recent
+    filing, the series silently straddles two bases: Broadcom's diluted share
+    count reads 429m for FY2021 and 4,232m for FY2022, which is not a 10x
+    issuance but a 10-for-1 split that the FY2022 comparative reflects and the
+    FY2021 original does not. Left uncorrected it produced a 63%-a-year
+    share-count growth rate.
+
+    Note that the break in the data sits at the *restatement* boundary, not at
+    the split date -- Broadcom's split was in 2024 but its data steps between
+    FY2021 and FY2022 -- so the split date cannot be used to locate it. Instead
+    this walks newest to oldest looking for an adjacent-pair ratio that matches
+    a split the company actually did, and rescales everything older. Matching
+    against recorded factors (rather than any large jump) keeps a genuine
+    10-for-1 share issuance from being "corrected" away.
+    """
+    if series is None or len(series) < 2:
+        return series
+    if splits is None or splits.empty:
+        return series
+
+    available = [float(f) for f in splits.to_numpy(dtype=float)
+                 if is_num(f) and f > 0 and abs(f - 1.0) > 1e-6]
+    if not available:
+        return series
+
+    out = series.astype(float).copy()
+    for i in range(len(out) - 1, 0, -1):
+        older, newer = out.iloc[i - 1], out.iloc[i]
+        if not (is_num(older) and is_num(newer)) or older <= 0:
+            continue
+        ratio = newer / older
+        if abs(ratio - 1.0) < 0.25:      # ordinary year-to-year drift
+            continue
+        match, best_error = None, tolerance
+        for factor in available:
+            for candidate in (factor, 1.0 / factor):
+                error = abs(ratio / candidate - 1.0)
+                if error < best_error:
+                    match, best_error = (factor, candidate), error
+        if match is None:
+            continue
+        factor, candidate = match
+        out.iloc[:i] = out.iloc[:i] * candidate
+        available.remove(factor)         # each split explains one break
+    return out
+
+
 def compute_metrics(f: Fundamentals, price: float | None = None,
-                   dividend_ttm: float | None = None) -> dict[str, float]:
+                   dividend_ttm: float | None = None,
+                   splits: pd.Series | None = None) -> dict[str, float]:
     """Flatten a company's fundamentals (+ price) into a metric dictionary.
 
     Valuation multiples are only populated when ``price`` is supplied.  Keys
@@ -389,16 +500,22 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
     cfg = settings()
 
     # ---- scale ------------------------------------------------------------
-    # Two different share counts, used for two different jobs:
-    #   * market cap prices the shares that actually exist today, so it uses the
-    #     cover-page count from the latest filing;
-    #   * per-share fundamentals (EPS, book value) must match the earnings
-    #     period, so they use the diluted weighted average.
-    shares_out = first_finite(f.get("shares_outstanding"), f.get("shares_issued"),
-                              f.get("shares_diluted"))
+    shares_out, shares_basis, share_notes = share_count(f)
+    # Per-share fundamentals use the diluted weighted average so they line up
+    # with the earnings period; market cap uses the best total available.
     shares = first_finite(f.get("shares_diluted"), f.get("shares_basic"), shares_out)
     m["shares"] = shares
     m["shares_outstanding"] = shares_out
+    m["share_count_basis"] = shares_basis       # type: ignore[assignment]
+    m["share_count_notes"] = share_notes        # type: ignore[assignment]
+    # False means only a possibly-single-class cover-page count was available,
+    # so market cap and every multiple built on it may be understated. Screens
+    # should exclude these names from valuation rankings rather than rank them
+    # as cheap, which is exactly what an understated market cap looks like.
+    m["share_count_reliable"] = float(
+        shares_basis == "diluted total"
+        or (shares_basis == "cover page" and not share_notes)
+    )
     m["dilution_overhang"] = safe_div(shares, shares_out) - 1.0 if is_num(shares) else NAN
 
     if is_num(price) and is_num(shares_out) and shares_out > 0:
@@ -522,7 +639,8 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         m["fcf_years_available"] = float(len(fcf_hist))
 
     # Share-count trend: the dilution that quietly eats per-share growth.
-    sh_hist = f.annual_series("shares_diluted")
+    # Normalised for splits first, or a 10-for-1 reads as a 10x share issuance.
+    sh_hist = normalize_split_basis(f.annual_series("shares_diluted"), splits)
     if len(sh_hist) >= 4:
         m["share_count_cagr_3y"] = cagr(float(sh_hist.iloc[-4]), float(sh_hist.iloc[-1]), 3)
     if len(sh_hist) >= 6:

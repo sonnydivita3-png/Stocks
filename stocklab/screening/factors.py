@@ -25,7 +25,7 @@ import pandas as pd
 from ..analysis.metrics import compute_metrics
 from ..analysis.technicals import technical_snapshot
 from ..data.providers.sec import fetch_frame, load_fundamentals, ticker_to_cik
-from ..data.providers.yahoo import fetch_history, fetch_meta
+from ..data.providers.yahoo import fetch_dividends, fetch_history, fetch_meta, fetch_splits
 from ..util.mathx import is_num, pct_rank, winsorize, zscore
 
 log = logging.getLogger(__name__)
@@ -78,8 +78,17 @@ def load_one(symbol: str, *, with_technicals: bool = True,
     if not is_num(price):
         return None
 
+    dividend_ttm = None
+    dividends = fetch_dividends(symbol)
+    if not dividends.empty:
+        cutoff = pd.Timestamp.today().normalize() - pd.Timedelta(days=365)
+        recent = dividends[dividends.index >= cutoff]
+        dividend_ttm = float(recent.sum()) if not recent.empty else 0.0
+
     row: dict = {"symbol": symbol, "name": fundamentals.name}
-    row.update(compute_metrics(fundamentals, price))
+    row.update(compute_metrics(fundamentals, price, dividend_ttm=dividend_ttm,
+                               splits=fetch_splits(symbol)))
+    row.pop("share_count_notes", None)
     row["exchange"] = meta.get("exchange")
 
     if with_technicals:

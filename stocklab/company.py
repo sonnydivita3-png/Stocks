@@ -14,7 +14,9 @@ import pandas as pd
 from .analysis.metrics import compute_metrics
 from .analysis.technicals import technical_snapshot
 from .data.providers.sec import Fundamentals, load_fundamentals
-from .data.providers.yahoo import fetch_dividends, fetch_history, fetch_meta
+from .data.providers.yahoo import (
+    fetch_dividends, fetch_history, fetch_meta, fetch_splits,
+)
 from .util.mathx import NAN, is_num
 
 log = logging.getLogger(__name__)
@@ -81,7 +83,8 @@ class Company:
         if not is_num(price) and not history.empty:
             price = float(history["close"].iloc[-1])
 
-        metrics = compute_metrics(fundamentals, price, dividend_ttm=dividend_ttm)
+        metrics = compute_metrics(fundamentals, price, dividend_ttm=dividend_ttm,
+                                  splits=fetch_splits(symbol))
 
         technicals: dict = {}
         if with_technicals and not history.empty and len(history) > 60:

@@ -190,6 +190,11 @@ def sanity_filters() -> list[Filter]:
     return [
         Filter("revenue", ">", 0, label="positive revenue"),
         Filter("years_of_data", ">=", 3, label="3+ years of filings"),
+        # An unreliable share count makes market cap -- and therefore every
+        # multiple -- understated, which reads as "cheap". Excluded so a data
+        # gap cannot win a value screen.
+        Filter("share_count_reliable", "==", 1.0, required=False,
+               label="share count corroborated across sources"),
         # A Beneish M-Score above -1.3 is a strong manipulation flag; names
         # without one are allowed through rather than excluded for silence.
         Filter("beneish_m", "<", -1.30, required=False,
