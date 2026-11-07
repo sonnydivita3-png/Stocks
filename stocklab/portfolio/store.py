@@ -282,7 +282,14 @@ _STORE: PortfolioStore | None = None
 
 
 def store(path: Path | str | None = None) -> PortfolioStore:
+    """Process-wide store, re-created when the configured path changes.
+
+    Comparing against the resolved path matters: holding the first instance
+    forever means a later `--data-dir` (or a test using a fresh directory) is
+    silently ignored and writes land in the previous database.
+    """
     global _STORE
-    if _STORE is None or path is not None:
-        _STORE = PortfolioStore(path)
+    wanted = Path(path) if path else settings().portfolio_db
+    if _STORE is None or _STORE.path != wanted:
+        _STORE = PortfolioStore(wanted)
     return _STORE

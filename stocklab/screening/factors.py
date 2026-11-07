@@ -159,7 +159,7 @@ def build_matrix(
 
 
 def add_ranks(matrix: pd.DataFrame, factors: list[str] | None = None,
-              by_sector: bool = False) -> pd.DataFrame:
+              by_sector: bool = False, min_per_sector: int = 3) -> pd.DataFrame:
     """Append ``<factor>_z`` and ``<factor>_pct`` columns.
 
     Winsorizing before standardising is not optional: one company with a
@@ -173,24 +173,46 @@ def add_ranks(matrix: pd.DataFrame, factors: list[str] | None = None,
     out = matrix.copy()
     factors = factors or [f for f in FACTOR_DIRECTIONS if f in out.columns]
 
+    # A z-score over two observations says nothing, so a factor needs a
+    # minimum number of populated values before it is ranked at all. Tied to
+    # `min_per_sector` so that asking for smaller sector groups does not then
+    # silently produce no columns for them.
+    min_obs = max(2, min(3, min_per_sector)) if by_sector else 3
+
     def rank_block(frame: pd.DataFrame) -> pd.DataFrame:
         block = {}
         for factor in factors:
             if factor not in frame.columns:
                 continue
             series = pd.to_numeric(frame[factor], errors="coerce")
-            if series.notna().sum() < 3:
+            if series.notna().sum() < min_obs:
                 continue
-            ascending = FACTOR_DIRECTIONS.get(factor, True)
+            # True means a higher raw value is better (ROIC); False means lower
+            # is better (P/E). Both output columns are oriented so that *larger
+            # is better*: `_z` flips sign for lower-is-better factors, and
+            # `_pct` ranks so the cheapest name scores 1.0 rather than 0.0.
+            higher_is_better = FACTOR_DIRECTIONS.get(factor, True)
             clipped = winsorize(series)
-            block[f"{factor}_z"] = zscore(clipped, robust=True) * (1.0 if ascending else -1.0)
-            block[f"{factor}_pct"] = pct_rank(series, ascending=not ascending)
+            block[f"{factor}_z"] = (zscore(clipped, robust=True)
+                                    * (1.0 if higher_is_better else -1.0))
+            block[f"{factor}_pct"] = pct_rank(series, ascending=higher_is_better)
         return pd.DataFrame(block, index=frame.index)
 
     if by_sector and "sector" in out.columns:
-        pieces = [rank_block(group) for _, group in out.groupby("sector", dropna=False)
-                  if len(group) >= 3]
-        ranked = pd.concat(pieces) if pieces else pd.DataFrame(index=out.index)
+        # Rank within sector where the sector is large enough to mean anything,
+        # and fall back to the whole universe for the rest. Without the
+        # fallback, a universe where no sector reaches the minimum produces no
+        # rank columns at all and every downstream lookup raises.
+        pieces, thin = [], []
+        for _, group in out.groupby("sector", dropna=False):
+            if len(group) >= min_per_sector:
+                pieces.append(rank_block(group))
+            else:
+                thin.append(group)
+        if thin:
+            pieces.append(rank_block(pd.concat(thin)))
+        ranked = pd.concat(pieces) if pieces else rank_block(out)
+        ranked = ranked.reindex(out.index)
     else:
         ranked = rank_block(out)
 
