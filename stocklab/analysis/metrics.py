@@ -424,8 +424,22 @@ def share_count(f: Fundamentals) -> tuple[float, str, list[str], bool]:
         ("diluted total", f.get("shares_diluted")),
         ("implied by diluted EPS", implied),
         ("basic total", f.get("shares_basic")),
+        # Shares issued counts treasury stock the company has bought back, so
+        # it is never the answer on its own. It is still an independent
+        # statement of magnitude, so it is allowed to corroborate one.
+        ("shares issued", f.get("shares_issued")),
     ]
     usable = [(label, float(v)) for label, v in sources if is_num(v) and v > 0]
+
+    # Shares issued includes treasury stock, so a true total can never exceed
+    # it. Where it sits below another source it is itself a partial count --
+    # Duolingo's reads 16.6m against 49.6m diluted -- and it must not vouch
+    # for a figure as wrong as itself: left in, it outvoted the right one.
+    others = [v for label, v in usable if label != "shares issued"]
+    if others:
+        usable = [(label, v) for label, v in usable
+                  if label != "shares issued" or v >= max(others) * 0.95]
+
     if not usable:
         issued = f.get("shares_issued")
         if is_num(issued) and issued > 0:
@@ -444,8 +458,13 @@ def share_count(f: Fundamentals) -> tuple[float, str, list[str], bool]:
                 break
         else:
             groups.append([(label, value)])
-    groups.sort(key=lambda g: (-len(g), usable.index(g[0])))
-    winner = groups[0]
+    # A group of only "shares issued" cannot win; drop it from contention.
+    contenders = [g for g in groups
+                  if any(label != "shares issued" for label, _ in g)] or groups
+    contenders.sort(key=lambda g: (-len(g), usable.index(g[0])))
+    winner = [(label, v) for label, v in contenders[0] if label != "shares issued"] \
+        or contenders[0]
+    groups = contenders + [g for g in groups if g not in contenders]
     value = sum(v for _, v in winner) / len(winner)
     basis = winner[0][0]
 
@@ -479,10 +498,8 @@ def share_count(f: Fundamentals) -> tuple[float, str, list[str], bool]:
     if len(winner) == 1:
         notes.append(
             f"Only one share count source was available ({basis}), so nothing "
-            "corroborates it. Market value and every figure built on it are "
-            "withheld for this company."
+            "in the filings corroborates it."
         )
-        return value, basis, notes, False
     return value, basis, notes, True
 
 
@@ -559,6 +576,26 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
 
     # ---- scale ------------------------------------------------------------
     shares_out, shares_basis, share_notes, shares_ok = share_count(f)
+    # Last line of defence: a share count can be wrong in ways no second
+    # filing tag catches, because both can come from the same mis-scaled
+    # document. Price times shares has to land somewhere a real company could
+    # be. Berkshire's Class A cover-page count prices it at $537m against
+    # $260bn of revenue -- two thousandths of one year's sales. These bounds
+    # are set wide enough to admit a genuinely distressed company and a
+    # genuinely speculative one; they catch arithmetic, not opinions.
+    implied_cap = (float(price) * shares_out
+                   if is_num(price) and is_num(shares_out) and shares_out > 0 else NAN)
+    sales = f.get("revenue")
+    if shares_ok and is_num(implied_cap) and is_num(sales) and sales > 0:
+        price_to_sales = implied_cap / sales
+        if price_to_sales < 0.02 or price_to_sales > 1000:
+            shares_ok = False
+            share_notes = list(share_notes) + [
+                f"The share count implies a market value of "
+                f"{implied_cap / 1e6:,.1f}m against {sales / 1e6:,.1f}m of annual "
+                f"sales, which no real company trades at. The count is wrong, "
+                f"so market value and every figure built on it are withheld."
+            ]
     # Per-share fundamentals once used the diluted weighted average directly,
     # which is the figure filers silently switch to millions: McDonald's came
     # out at $197,000 of market value. They now use the reconciled count, and
@@ -586,6 +623,13 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         market_cap = NAN
     m["price"] = float(price) if is_num(price) else NAN
     m["market_cap"] = market_cap
+    if not shares_ok:
+        # Market cap is already nan above, which makes every multiple built on
+        # it nan. Per-share figures come off the same bad denominator, so they
+        # go too: Berkshire's book value per share read $794,397 and its fair
+        # value $662,563 while its market cap was correctly withheld.
+        shares = NAN
+        m["shares"] = NAN
 
     debt = total_debt(f)
     cash = liquid_assets(f)

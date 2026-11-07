@@ -233,16 +233,69 @@ class TestShareCounts:
         assert ok
         assert any("factor" in n for n in notes)
 
-    def test_a_count_no_other_source_supports_is_not_trusted(self, healthy_company):
-        """Berkshire offers only a cover-page count, which is a Class A
-        figure. Nothing built on it should be published."""
+    def test_a_lone_source_is_noted_but_still_used(self, healthy_company):
+        """Requiring a second filing tag was too strict: it withheld Visa,
+        Duolingo, Global Ship Lease and KKR, whose single counts are right.
+        The note is kept; the figure is not thrown away."""
         healthy_company.ttm["shares_diluted"] = float("nan")
         healthy_company.ttm["shares_basic"] = float("nan")
         healthy_company.ttm["eps_diluted"] = float("nan")
         count, basis, notes, ok = share_count(healthy_company)
         assert count == pytest.approx(100.0)
-        assert not ok
+        assert ok
         assert any("corroborates" in n for n in notes)
+
+    def test_shares_issued_may_corroborate_but_never_wins_alone(self, healthy_company):
+        """It counts treasury stock the company has bought back, so it is an
+        upper bound, not the answer."""
+        healthy_company.ttm["shares_outstanding"] = float("nan")
+        healthy_company.ttm["shares_diluted"] = float("nan")
+        healthy_company.ttm["shares_basic"] = float("nan")
+        healthy_company.ttm["eps_diluted"] = float("nan")
+        healthy_company.ttm["shares_issued"] = 120.0
+        count, basis, _, _ = share_count(healthy_company)
+        assert basis == "shares issued"
+        count2, basis2, _, _ = share_count(healthy_company)
+        healthy_company.ttm["shares_outstanding"] = 100.0
+        count3, basis3, _, _ = share_count(healthy_company)
+        assert basis3 == "cover page" and count3 == pytest.approx(100.0)
+
+    def test_a_partial_issued_count_does_not_vouch_for_a_wrong_figure(self, healthy_company):
+        """Duolingo's shares issued reads 16.6m against 49.6m diluted. Left in
+        the vote it corroborated the wrong number and halved the company."""
+        healthy_company.ttm["shares_outstanding"] = float("nan")
+        healthy_company.ttm["shares_basic"] = float("nan")
+        healthy_company.ttm["shares_diluted"] = 100.0
+        healthy_company.ttm["net_income"] = 34.0
+        healthy_company.ttm["eps_diluted"] = 1.0        # implies 34 shares
+        healthy_company.ttm["shares_issued"] = 33.0     # agrees with the wrong one
+        count, basis, _, _ = share_count(healthy_company)
+        assert count == pytest.approx(100.0)
+        assert basis == "diluted total"
+
+    def test_an_impossible_market_value_rejects_the_count(self, healthy_company):
+        """Berkshire's Class A cover-page count prices it at $537m against
+        $260bn of sales. No second filing tag catches that, because there is
+        no second tag; the arithmetic does."""
+        healthy_company.ttm["shares_diluted"] = float("nan")
+        healthy_company.ttm["shares_basic"] = float("nan")
+        healthy_company.ttm["eps_diluted"] = float("nan")
+        healthy_company.ttm["shares_outstanding"] = 0.001
+        healthy_company.ttm["revenue"] = 1_000_000.0
+        from stocklab.analysis.metrics import compute_metrics
+        m = compute_metrics(healthy_company, price=50.0)
+        assert m["share_count_reliable"] == 0.0
+        assert math.isnan(m["market_cap"])
+        assert math.isnan(m["shares"])
+
+    def test_a_plausible_market_value_is_left_alone(self, healthy_company):
+        """The bounds are wide enough for a distressed company; they catch
+        arithmetic, not opinions."""
+        from stocklab.analysis.metrics import compute_metrics
+        healthy_company.ttm["revenue"] = 1_000.0
+        m = compute_metrics(healthy_company, price=50.0)
+        assert m["share_count_reliable"] == 1.0
+        assert m["market_cap"] == pytest.approx(5_000.0)
 
     def test_a_cover_page_far_above_the_total_wins(self, healthy_company):
         """A cover page can under-report (one class of several). It cannot
@@ -258,16 +311,6 @@ class TestShareCounts:
         assert basis == "cover page"
         assert ok
 
-    def test_an_untrusted_count_suppresses_market_value(self, healthy_company):
-        """An understated share count looks exactly like a bargain, so no
-        multiple built on one is published."""
-        from stocklab.analysis.metrics import compute_metrics
-        healthy_company.ttm["shares_diluted"] = float("nan")
-        healthy_company.ttm["shares_basic"] = float("nan")
-        healthy_company.ttm["eps_diluted"] = float("nan")
-        m = compute_metrics(healthy_company, price=50.0)
-        assert m["share_count_reliable"] == 0.0
-        assert math.isnan(m["market_cap"])
 
 
 class TestSplitNormalisation:
