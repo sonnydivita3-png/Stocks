@@ -37,13 +37,6 @@
   .vd-pillar b { font-size: var(--cds-font-size-caption); display: block; color: var(--color-fg); }
   .vd-pillar span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
 
-  .vd-warn { border: 1px solid var(--color-border-line); border-left: 3px solid var(--color-warn);
-    border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg);
-    margin-bottom: var(--cds-gap-md); }
-  .vd-warn p { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
-    margin: 0; max-width: 70ch; }
-  .vd-warn b { color: var(--color-fg); }
-
   /* company cards */
   .vd-cards { display: grid; gap: var(--cds-gap-md);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
@@ -104,9 +97,6 @@
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .vd-sugg-more { padding: 9px 12px; margin: 0;
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .vd-fold > summary { cursor: pointer; padding: 10px 0;
-    font-size: var(--cds-font-size-body); }
-  .vd-fold > summary:hover { color: var(--color-fg); }
   .vd-chip-cat { border-style: dashed; }
   .vd-step { margin-bottom: var(--cds-pad-sm); }
   .vd-step-head { display: flex; justify-content: space-between; align-items: baseline;
@@ -128,6 +118,13 @@
     flex: 1 1 8rem; }
   .vd-near-miss { font-size: var(--cds-font-size-caption); color: var(--color-warn);
     flex: 0 0 auto; }
+  .vd-pick { display: flex; align-items: center; flex-wrap: wrap;
+    gap: var(--cds-pad-sm); margin-bottom: var(--cds-pad-sm); }
+  .vd-pick > span { font-size: var(--cds-font-size-body); }
+  .vd-pick select { font: inherit; font-size: var(--cds-font-size-body);
+    padding: 7px 10px; border-radius: var(--cds-radius);
+    border: 1px solid var(--color-border-line);
+    background: var(--color-bg); color: var(--color-fg); }
   .vd-value { display: grid; gap: 4px; padding: var(--cds-pad-sm) 0;
     border-top: 1px solid var(--color-border-line);
     border-bottom: 1px solid var(--color-border-line); }
@@ -137,23 +134,6 @@
   .vd-value-num { font-variant-numeric: tabular-nums; }
   .vd-value-note { grid-column: 1 / -1; font-size: var(--cds-font-size-caption);
     color: var(--color-fg-muted); }
-  .vd-more { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap;
-    gap: var(--cds-pad-sm); padding-top: var(--cds-pad-xs); }
-  .vd-more button { padding: 8px 16px; font: inherit;
-    font-size: var(--cds-font-size-body); cursor: pointer;
-    background: transparent; color: var(--color-fg);
-    border: 1px solid var(--color-fg); border-radius: var(--cds-radius); }
-  .vd-more button:hover { background: var(--color-panel); }
-  .vd-more-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .vd-zoom { display: flex; align-items: center; gap: var(--cds-pad-xs);
-    margin-bottom: var(--cds-pad-sm); flex-wrap: wrap; }
-  .vd-zoom-hint { flex: 1 1 14rem; font-size: var(--cds-font-size-caption);
-    color: var(--color-fg-muted); }
-  .vd-zoom button { min-width: 2.25rem; padding: 6px 10px; font: inherit;
-    font-size: var(--cds-font-size-caption); cursor: pointer;
-    background: transparent; color: var(--color-fg);
-    border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
-  .vd-zoom button:hover { background: var(--color-panel); }
   .vd-miss { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: 0; }
   .vd-detail { display: grid; gap: var(--cds-gap-md); }
@@ -172,23 +152,6 @@
     font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
   .vd-rank { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: 0; }
-
-  .vd-plot { position: relative; min-width: 0; }
-  .vd-plot svg { display: block; }
-  .vd-plot { position: relative; }
-  .vd-tip { position: absolute; pointer-events: none; opacity: 0;
-    background: var(--cds-surface-popover); border: 1px solid var(--cds-border);
-    border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover);
-    padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption);
-    font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 5; }
-  .vd-tip-head { color: var(--cds-text-secondary); margin-bottom: 2px; }
-  .vd-legend { display: flex; gap: var(--cds-gap-md); flex-wrap: wrap;
-    margin-bottom: var(--cds-pad-sm); }
-  .vd-legend span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
-    display: inline-flex; align-items: center; gap: 6px; }
-  .vd-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-  .vd-tablebox { max-height: 34rem; overflow: auto; }
   .vd table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption);
     font-variant-numeric: tabular-nums; }
   .vd th { position: sticky; top: 0; background: var(--color-panel); text-align: left;
@@ -201,18 +164,6 @@
     border-bottom: 1px solid var(--color-border-line); }
   .vd tbody tr:last-child td { border-bottom: 0; }
   .vd .pos { color: var(--color-ok); } .vd .neg { color: var(--color-bad); }
-
-  .vd-bars { display: grid; gap: var(--cds-pad-sm); }
-  .vd-bar { display: grid; grid-template-columns: 1fr auto; gap: var(--cds-pad-sm); align-items: baseline; }
-  .vd-bar .n { font-size: var(--cds-font-size-caption); }
-  .vd-bar .v { font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums;
-    color: var(--color-fg-muted); white-space: nowrap; }
-  .vd-bar .t { grid-column: 1 / -1; height: 6px; border-radius: 3px;
-    background: var(--cds-chart-grid); overflow: hidden; }
-  .vd-bar .t > i { display: block; height: 100%; border-radius: 3px; }
-
-  .vd-grid-2 { display: grid; gap: var(--cds-gap-md);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
   .vd-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-pad-xs);
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .vd-fail i { width: .375rem; height: .375rem; border-radius: 50%;
@@ -366,118 +317,38 @@
     <p class="vd-note">Ranked by the combined score. These are the companies where good
       business quality, growth, a sound balance sheet and a reasonable price coincide most
       closely today. Bars run from 0 to 100.</p>
-    <p class="vd-note"><b>Check what industry they are in before reading too much into the
-      order.</b> When conditions favour one industry, a screen like this will rank much of
-      that industry highly all at once &mdash; which is a bet on the industry, not on the
-      individual companies. The full table below shows each one&rsquo;s sector. An earlier
-      version of this page was worse than that: insurers filled the top of the list because
-      the scoring rewarded them for the measures they do not report. That is fixed, and
-      the detail is in the notes at the foot of the page.</p>
+    <p class="vd-note"><b>Check what industry they are in before reading too much into
+      the order.</b> When conditions favour one industry, a screen like this ranks much of
+      that industry highly at once &mdash; a bet on the industry, not on the companies.
+      Each card says which industry it is.</p>
     <div class="vd-cards" data-draw="top-cards" data-source="companies"></div>
   </section>
 
   <section class="vd-section">
-    <h2>Smaller companies growing fast</h2>
-    <p class="vd-note">Companies worth under about ten billion dollars whose sales are
-      growing quickly. This is where a future large company would be found, and also
-      where most of the failures are.</p>
-    <div class="vd-warn">
-      <p><b>Read this before the list.</b> Most small companies never become large ones.
-        Across the whole history of the US market, the majority of individual stocks
-        returned less than a government savings bond over their lifetime, and almost all
-        of the market's gain came from a small handful of winners. Picking which of these
-        becomes the next big company is not something any screen can do. They are listed
-        because their numbers are interesting, not because they are likely to succeed.</p>
-    </div>
-    <div class="vd-cards" data-draw="growth-cards" data-source="companies"></div>
-  </section>
-
-  <section class="vd-section">
-    <h2>Good business against sensible price</h2>
-    <p class="vd-note">Business quality across the bottom, price up the side. The top right
-      is the corner worth looking at: a good business that is not expensive. Circle size is
-      how big the company is.</p>
-    <div class="vd-legend">
-      <span><i data-draw="legend-a"></i>Smaller companies</span>
-      <span><i data-draw="legend-b"></i>Mid and large companies</span>
-    </div>
+    <h2>Browse by type</h2>
+    <p class="vd-note">The ten best in whichever group you pick, ranked by their weakest
+      score so that nothing on a list is badly weak anywhere. Changing the group changes
+      which companies you are looking at, never the analysis behind them.</p>
     <div class="vd-card">
-      <div class="vd-plot" data-source="companies">
-        <div class="vd-zoom" data-zoom="scatter">
-          <span class="vd-zoom-hint">Scroll, pinch or drag to explore. Zoom in and more
-            names appear.</span>
-          <button type="button" data-act="out" aria-label="Zoom out">&minus;</button>
-          <button type="button" data-act="in" aria-label="Zoom in">+</button>
-          <button type="button" data-act="reset">Reset</button>
-        </div>
-        <div data-draw="scatter" class="vd-plot" style="min-height: 440px"></div>
-      </div>
+      <label class="vd-pick">
+        <span>Show the top ten</span>
+        <select class="dash-select" id="vd-group" aria-label="Which group of companies">
+          <option value="all">of everything</option>
+          <option value="qualify">that clear every condition</option>
+          <option value="value">priced below fair value</option>
+          <option value="growth">growing fast</option>
+          <option value="compounder">quality compounders</option>
+          <option value="income">paying an income</option>
+          <option value="steady">steady businesses</option>
+          <option value="speculative">speculative</option>
+          <option value="small">small companies</option>
+          <option value="mid">mid-sized companies</option>
+          <option value="large">large companies</option>
+        </select>
+      </label>
+      <p class="vd-note" data-draw="group-note" data-source="companies">&mdash;</p>
     </div>
-  </section>
-
-  <section class="vd-section">
-    <h2>Every company examined</h2>
-    <p class="vd-note">The whole list, sortable. Size is the company's total market value:
-      mega is above $200bn, large above $10bn, mid above $2bn, small above $300m.</p>
-    <details class="vd-fold">
-      <summary>Open the full table</summary>
-      <p class="vd-note">Click any column heading to sort. Scroll sideways for the
-        valuation columns. &ldquo;Cheap or dear&rdquo; is the gap between the fair value
-        estimate and today&rsquo;s price: positive means the estimate is above the price.
-        Where a share costs more than the model can justify at any sensible return,
-        &ldquo;Above Treasury&rdquo; shows the boundary rather than a true figure &mdash;
-        the company card says so in words.</p>
-    <div class="vd-card">
-      <div class="vd-tablebox">
-        <table data-source="companies" data-row-key="symbol">
-          <thead>
-            <tr>
-              <th data-field="symbol"><button type="button">Symbol</button></th>
-              <th data-field="name"><button type="button">Company</button></th>
-              <th data-field="size"><button type="button">Size</button></th>
-              <th data-field="grade"><button type="button">Grade</button></th>
-              <th data-num data-field="overall"><button type="button">Overall</button></th>
-              <th data-num data-field="quality"><button type="button">Quality</button></th>
-              <th data-num data-field="growth"><button type="button">Growth</button></th>
-              <th data-num data-field="safety"><button type="button">Safety</button></th>
-              <th data-num data-field="price_score"><button type="button">Price</button></th>
-              <th data-num data-field="rev_cagr_3y"><button type="button">Sales growth</button></th>
-              <th data-num data-field="roic_5y"><button type="button">Return on capital</button></th>
-              <th data-num data-field="market_cap"><button type="button">Market value</button></th>
-              <th data-num data-field="price"><button type="button">Share price</button></th>
-              <th data-num data-field="fair_value"><button type="button">Fair value</button></th>
-              <th data-num data-field="margin_of_safety"><button type="button">Cheap or dear</button></th>
-              <th data-num data-field="implied_erp"><button type="button">Above Treasury</button></th>
-            </tr>
-          </thead>
-          <tbody data-draw="table-body"></tbody>
-        </table>
-      </div>
-    </div>
-    </details>
-  </section>
-
-  <section class="vd-section">
-    <h2>The market behind these prices</h2>
-    <p class="vd-note">A backdrop reading, not a signal to buy or sell. It is built from
-      how the index is trending, what lenders are charging risky borrowers, how many shares
-      are rising, and how jumpy prices are.</p>
-    <div class="vd-grid-2">
-      <div class="vd-card">
-        <p class="vd-label">What goes into the score, and how much it counts</p>
-        <div class="vd-bars" data-draw="regime-bars" data-source="regime_components"></div>
-      </div>
-      <div class="vd-card">
-        <p class="vd-label">Readings</p>
-        <table data-source="regime_readings" data-row-key="measure">
-          <thead><tr>
-            <th data-field="measure"><button type="button">Measure</button></th>
-            <th data-num data-field="value"><button type="button">Value</button></th>
-          </tr></thead>
-          <tbody data-draw="readings-body"></tbody>
-        </table>
-      </div>
-    </div>
+    <div class="vd-cards" data-draw="group-cards" data-source="companies regime_readings"></div>
   </section>
 
   <details>
@@ -630,8 +501,6 @@
       + ' earn an A or B. ' + get('smaller_ab') + ' of those are smaller companies.';
   });
 
-  dash.draw('legend-a', (el) => { el.style.background = dash.colors[0]; });
-  dash.draw('legend-b', (el) => { el.style.background = dash.colors[1]; });
 
   const scoreRow = (label, value) => {
     const row = document.createElement('div'); row.className = 'vd-srow';
@@ -754,39 +623,12 @@
 
   // Ten is enough to read in one sitting. The rest are a click away rather
   // than a wall of cards nobody scrolls past.
-  const PAGE = 10;
-  const shown = {'top-cards': PAGE, 'growth-cards': PAGE};
+  // Five fits on a phone without scrolling past it, and the browser below
+  // covers wanting more. A list nobody reaches the bottom of is not more
+  // information, it is less.
+  const HEADLINE = 5;
+  const BROWSE = 10;
 
-  const cardList = (el, id, ranked) => {
-    el.replaceChildren();
-    const limit = shown[id];
-    ranked.slice(0, limit).forEach((r) => el.appendChild(companyCard(r)));
-    if (ranked.length <= limit) {
-      if (ranked.length > PAGE) {
-        el.appendChild(moreBar('Show fewer', 'Showing all ' + ranked.length + '.', () => {
-          shown[id] = PAGE; dash.draw(id);
-        }));
-      }
-      return;
-    }
-    const left = ranked.length - limit;
-    const step = Math.min(PAGE, left);
-    el.appendChild(moreBar('Show ' + step + ' more',
-      'Showing ' + limit + ' of ' + ranked.length + '.', () => {
-        shown[id] = limit + step; dash.draw(id);
-      }));
-  };
-
-  const moreBar = (label, note, onClick) => {
-    const bar = document.createElement('div'); bar.className = 'vd-more';
-    const b = document.createElement('button'); b.type = 'button';
-    b.textContent = label; b.addEventListener('click', onClick);
-    const n = document.createElement('span'); n.className = 'vd-more-note'; n.textContent = note;
-    bar.append(b, n);
-    return bar;
-  };
-
-  // ---- the screen ----------------------------------------------------
   dash.draw('funnel', (el) => {
     const d = dash.data('screen');
     el.replaceChildren();
@@ -842,7 +684,7 @@
         + 'The watchlist below is where to look when prices move.';
       el.appendChild(none); return;
     }
-    cardList(el, 'qualify-cards', pass);
+    pass.slice(0, HEADLINE).forEach((r) => el.appendChild(companyCard(r)));
   });
 
   dash.draw('near-miss', (el) => {
@@ -882,207 +724,80 @@
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    cardList(el, 'top-cards', rowsOf('companies')
+    rowsOf('companies')
       .filter((r) => num(r.overall) != null)
-      .sort((a, b) => num(b.overall) - num(a.overall)));
+      .sort((a, b) => num(b.overall) - num(a.overall))
+      .slice(0, HEADLINE)
+      .forEach((r) => el.appendChild(companyCard(r)));
   });
 
-  dash.draw('growth-cards', (el) => {
+  // ---- browse by type ------------------------------------------------
+  const GROUPS = {
+    all: {note: 'Every company examined, best first.', pick: () => true},
+    qualify: {note: 'These clear all ten conditions for a long-term position.',
+              pick: (r) => String(r.qualifies).toLowerCase() === 'true'},
+    value: {note: 'Trading below what the business looks worth. Cheap usually means '
+                  + 'something is wrong, so read the scores before the discount.',
+            pick: (r) => (num(r.margin_of_safety) ?? -9) > 0},
+    growth: {note: 'Sales growing more than a fifth a year, and priced for that to last.',
+             pick: (r) => r.category === 'growth'},
+    compounder: {note: 'Earning high returns on the money in the business and growing '
+                       + 'steadily. The ones built to be held.',
+                 pick: (r) => r.category === 'compounder'},
+    income: {note: 'Paying roughly a Treasury yield or better in dividends.',
+             pick: (r) => r.category === 'income'},
+    steady: {note: 'Profitable, growing slowly. Rarely exciting, rarely a disaster.',
+             pick: (r) => r.category === 'steady'},
+    speculative: {note: 'No profits yet, or too little filed history to value them. '
+                        + 'Most companies in this group lose money for their owners.',
+                  pick: (r) => r.category === 'speculative'},
+    small: {note: 'Worth under about two billion dollars.',
+            pick: (r) => SMALLER.has(r.size)},
+    mid: {note: 'Worth roughly two to ten billion dollars.',
+          pick: (r) => r.size === 'mid'},
+    large: {note: 'Worth more than ten billion dollars.',
+            pick: (r) => r.size === 'mega' || r.size === 'large'},
+  };
+  let group = 'all';
+
+  // Ranked by the weakest of the four scores rather than the average, so
+  // nothing on a list is badly weak anywhere. A company with no price score
+  // (no profits to value) has no weakest pillar and falls back to the grade,
+  // ranked below everything that has one.
+  const rankKey = (r) => {
+    const w = num(r.weakest_pillar);
+    return w == null ? (num(r.overall) ?? 0) - 1000 : w;
+  };
+  const inGroup = () => rowsOf('companies')
+    .filter(GROUPS[group].pick)
+    .sort((a, b) => rankKey(b) - rankKey(a));
+
+  dash.draw('group-note', (el) => {
+    if (dash.data('companies').status !== 'ok') { el.textContent = '\u2014'; return; }
+    const n = inGroup().length;
+    el.textContent = GROUPS[group].note + ' '
+      + (n === 1 ? '1 company is' : fmtI(n) + ' companies are') + ' in this group.';
+  });
+
+  dash.draw('group-cards', (el) => {
     const d = dash.data('companies');
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    cardList(el, 'growth-cards', rowsOf('companies')
-      .filter((r) => SMALLER.has(r.size) || (num(r.market_cap) != null && num(r.market_cap) < 1e10))
-      .filter((r) => num(r.growth) != null && num(r.overall) != null)
-      .sort((a, b) => (num(b.growth) * 0.6 + num(b.overall) * 0.4)
-                    - (num(a.growth) * 0.6 + num(a.overall) * 0.4)));
-  });
-
-  const tip = (box, frag, x, y) => {
-    box.replaceChildren(frag); box.style.opacity = 1;
-    const parent = box.parentElement.getBoundingClientRect();
-    box.style.left = Math.max(0, Math.min(x + 12, parent.width - box.offsetWidth - 4)) + 'px';
-    box.style.top = Math.max(0, y - box.offsetHeight - 10) + 'px';
-  };
-  const tipNode = (head, lines) => {
-    const f = document.createDocumentFragment();
-    const h = document.createElement('div'); h.className = 'vd-tip-head'; h.textContent = head;
-    f.appendChild(h);
-    lines.forEach((t) => { const d = document.createElement('div'); d.textContent = t; f.appendChild(d); });
-    return f;
-  };
-
-  // Held at module scope so the zoom buttons always drive the chart that is
-  // on screen, not whichever one existed when they were first wired up.
-  let scatterSvg = null, scatterZoom = null;
-
-  dash.draw('scatter', (el) => {
-    const d = dash.data('companies');
-    el.replaceChildren();
-    scatterSvg = scatterZoom = null;
-    if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
-    if (d.status !== 'ok') return;
-    const rows = rowsOf('companies').map((r) => ({
-      symbol: r.symbol, name: r.name, size: r.size, grade: r.grade,
-      q: num(r.quality), p: num(r.price_score), cap: num(r.market_cap),
-      overall: num(r.overall), fair: num(r.fair_value), px: num(r.price),
-      erp: num(r.implied_erp),
-    })).filter((r) => r.q != null && r.p != null && r.cap != null);
-    if (!rows.length) return;
-
-    const width = el.clientWidth || 640, height = 440;
-    const m = {top: 16, right: 20, bottom: 44, left: 52};
-    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', height)
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .style('touch-action', 'none').style('cursor', 'grab');
-    const x0 = d3.scaleLinear([0, 100], [m.left, width - m.right]);
-    const y0 = d3.scaleLinear([0, 100], [height - m.bottom, m.top]);
-    const r = d3.scaleSqrt(d3.extent(rows, (q) => q.cap), [4, 24]);
-
-    // Everything that moves under the zoom lives inside one clipped group, so
-    // points never spill over the axes when panned.
-    const clipId = 'vd-clip-' + Math.random().toString(36).slice(2, 9);
-    svg.append('clipPath').attr('id', clipId).append('rect')
-      .attr('x', m.left).attr('y', m.top)
-      .attr('width', Math.max(0, width - m.left - m.right))
-      .attr('height', Math.max(0, height - m.top - m.bottom));
-
-    const gGrid = svg.append('g');
-    const gRef = svg.append('g').attr('clip-path', `url(#${clipId})`);
-    const gPlot = svg.append('g').attr('clip-path', `url(#${clipId})`);
-    const gLabel = svg.append('g').attr('clip-path', `url(#${clipId})`)
-      .attr('pointer-events', 'none');
-
-    svg.append('text').attr('x', (m.left + width - m.right) / 2).attr('y', height - 7)
-      .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)')
-      .text('Business quality score \u2192');
-    svg.append('text').attr('transform', `translate(12, ${(m.top + height - m.bottom) / 2}) rotate(-90)`)
-      .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)')
-      .text('Price score \u2192');
-
-    const tipBox = document.createElement('div');
-    tipBox.className = 'vd-tip';
-    el.appendChild(tipBox);
-
-    const dots = gPlot.selectAll('circle').data(rows).join('circle')
-      .attr('fill', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
-      .attr('stroke', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
-      .attr('fill-opacity', .32)
-      .on('mousemove', (ev, p) => {
-        const b = el.getBoundingClientRect();
-        const lines = [
-          'Grade ' + (p.grade || '\u2014') + ' \u00b7 overall '
-            + (p.overall == null ? '\u2014' : fmtI(p.overall)),
-          'Quality ' + fmtI(p.q) + ' \u00b7 price ' + fmtI(p.p),
-          'Market value ' + money(p.cap),
-        ];
-        if (p.fair != null && p.px != null) {
-          lines.push('Fair value ' + dollars(p.fair) + ' vs ' + dollars(p.px) + ' today');
-        }
-        if (p.erp != null) lines.push('Return above Treasury ' + fmtPctS(p.erp));
-        tip(tipBox, tipNode(p.symbol + ' \u00b7 ' + p.name, lines),
-            ev.clientX - b.left, ev.clientY - b.top);
-      })
-      .on('mouseleave', () => { tipBox.style.opacity = 0; });
-
-    // Zoomed in, the crowd thins out, so more names can be shown without
-    // turning into a smear. Zoomed out, only the corner worth reading is named.
-    const labelsFor = (zx, zy, k) => {
-      const inView = (p) => {
-        const px = zx(p.q), py = zy(p.p);
-        return px >= m.left - 20 && px <= width - m.right + 20
-            && py >= m.top - 20 && py <= height - m.bottom + 20;
-      };
-      if (k < 1.8) {
-        return rows.filter((p) => p.q >= 60 && p.p >= 50 && inView(p))
-          .sort((a, b) => (b.overall || 0) - (a.overall || 0)).slice(0, 14);
-      }
-      return rows.filter(inView).sort((a, b) => b.cap - a.cap)
-        .slice(0, Math.min(80, Math.round(14 * k * k)));
-    };
-
-    const render = (t) => {
-      const zx = t.rescaleX(x0), zy = t.rescaleY(y0);
-      const k = t.k;
-
-      gGrid.selectAll('*').remove();
-      const step = k >= 4 ? 5 : k >= 2 ? 10 : 20;
-      const ticks = (scale, lo, hi) => d3.range(Math.ceil(lo / step) * step, hi + 0.001, step);
-      ticks(zx, Math.max(0, zx.invert(m.left)), Math.min(100, zx.invert(width - m.right)))
-        .forEach((tv) => {
-          gGrid.append('line').attr('x1', zx(tv)).attr('x2', zx(tv))
-            .attr('y1', m.top).attr('y2', height - m.bottom)
-            .attr('stroke', 'var(--cds-chart-grid)');
-          gGrid.append('text').attr('x', zx(tv)).attr('y', height - m.bottom + 15)
-            .attr('text-anchor', 'middle').attr('font-size', 10)
-            .attr('fill', 'var(--color-fg-muted)').text(tv);
-        });
-      ticks(zy, Math.max(0, zy.invert(height - m.bottom)), Math.min(100, zy.invert(m.top)))
-        .forEach((tv) => {
-          gGrid.append('line').attr('x1', m.left).attr('x2', width - m.right)
-            .attr('y1', zy(tv)).attr('y2', zy(tv))
-            .attr('stroke', 'var(--cds-chart-grid)');
-          gGrid.append('text').attr('x', m.left - 7).attr('y', zy(tv) + 3.5)
-            .attr('text-anchor', 'end').attr('font-size', 10)
-            .attr('fill', 'var(--color-fg-muted)').text(tv);
-        });
-
-      gRef.selectAll('*').remove();
-      gRef.append('line').attr('x1', zx(60)).attr('x2', zx(60))
-        .attr('y1', m.top).attr('y2', height - m.bottom)
-        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3');
-      gRef.append('line').attr('x1', m.left).attr('x2', width - m.right)
-        .attr('y1', zy(50)).attr('y2', zy(50))
-        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '3 3');
-
-      // Positions move with the zoom; the circles themselves keep their size,
-      // so a bubble still means the same market value at every zoom level.
-      dots.attr('cx', (p) => zx(p.q)).attr('cy', (p) => zy(p.p))
-        .attr('r', (p) => r(p.cap)).attr('stroke-width', 1.5);
-
-      gLabel.selectAll('text').data(labelsFor(zx, zy, k), (p) => p.symbol)
-        .join('text')
-        .attr('x', (p) => zx(p.q)).attr('y', (p) => zy(p.p) - r(p.cap) - 4)
-        .attr('text-anchor', 'middle').attr('font-size', 10)
-        .attr('fill', 'var(--color-fg-muted)').text((p) => p.symbol);
-    };
-
-    // d3 comes from the page runtime, not from a tag of ours, so the zoom
-    // module may not be in the bundle. Without it the chart still draws; it
-    // just does not pan, and the controls are taken away rather than left
-    // there doing nothing.
-    const bar = el.parentElement.querySelector('[data-zoom="scatter"]');
-    if (typeof d3.zoom !== 'function') {
-      if (bar) bar.hidden = true;
-      render(d3.zoomIdentity || {k: 1, rescaleX: (sc) => sc, rescaleY: (sc) => sc});
-      return;
+    const picked = inGroup().slice(0, BROWSE);
+    if (!picked.length) {
+      const none = document.createElement('p'); none.className = 'vd-miss';
+      none.textContent = 'No company is in this group today.';
+      el.appendChild(none); return;
     }
-    if (bar) bar.hidden = false;
-
-    const zoom = d3.zoom().scaleExtent([1, 12])
-      .translateExtent([[m.left, m.top], [width - m.right, height - m.bottom]])
-      .extent([[m.left, m.top], [width - m.right, height - m.bottom]])
-      .on('start', () => svg.style('cursor', 'grabbing'))
-      .on('end', () => svg.style('cursor', 'grab'))
-      .on('zoom', (ev) => { tipBox.style.opacity = 0; render(ev.transform); });
-    svg.call(zoom);
-    render(d3.zoomIdentity);
-
-    scatterSvg = svg; scatterZoom = zoom;
+    picked.forEach((r) => el.appendChild(companyCard(r)));
   });
 
-  document.querySelectorAll('[data-zoom="scatter"] button').forEach((b) => {
-    b.addEventListener('click', () => {
-      if (!scatterSvg || !scatterZoom) return;
-      const act = b.getAttribute('data-act');
-      if (act === 'reset') {
-        scatterSvg.transition().duration(250)
-          .call(scatterZoom.transform, d3.zoomIdentity);
-      } else {
-        scatterSvg.transition().duration(200)
-          .call(scatterZoom.scaleBy, act === 'in' ? 1.6 : 1 / 1.6);
-      }
+  document.querySelectorAll('#vd-group').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      group = GROUPS[sel.value] ? sel.value : 'all';
+      dash.draw('group-note');
+      dash.draw('group-cards');
     });
   });
 
@@ -1313,110 +1028,5 @@
     closeSuggest();
   });
 
-  let sortKey = 'overall', sortDir = -1;
-  const COLS = [
-    ['symbol', 'text'], ['name', 'text'], ['size', 'size'], ['grade', 'grade'],
-    ['overall', 'int'], ['quality', 'int'], ['growth', 'int'], ['safety', 'int'],
-    ['price_score', 'int'], ['rev_cagr_3y', 'signed'], ['roic_5y', 'pct'],
-    ['market_cap', 'money'], ['price', 'price'],
-    ['fair_value', 'price'], ['margin_of_safety', 'signed'], ['implied_erp', 'signed'],
-  ];
-  const cellFor = (kind, raw) => {
-    if (kind === 'text') return {text: raw == null || raw === '' ? '—' : String(raw)};
-    if (kind === 'size') return {text: SIZE_WORD[raw] || '—'};
-    if (kind === 'grade') return {text: raw || '—', color: gradeColor(raw)};
-    const v = num(raw);
-    if (v == null) return {text: '—'};
-    if (kind === 'int') return {text: fmtI(v)};
-    if (kind === 'pct') return {text: fmtPct(v)};
-    if (kind === 'signed') return {text: fmtPctS(v), cls: v > 0 ? 'pos' : (v < 0 ? 'neg' : '')};
-    if (kind === 'money') return {text: money(v)};
-    if (kind === 'price') return {text: '$' + fmtN(v)};
-    return {text: fmtN(v)};
-  };
-
-  dash.draw('table-body', (el) => {
-    const d = dash.data('companies');
-    el.replaceChildren();
-    if (d.status !== 'ok') return;
-    const rows = rowsOf('companies').slice().sort((a, b) => {
-      const av = num(a[sortKey]), bv = num(b[sortKey]);
-      if (av == null && bv == null) {
-        return String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? '')) * sortDir;
-      }
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      return (av - bv) * sortDir;
-    });
-    rows.forEach((row) => {
-      const tr = document.createElement('tr');
-      COLS.forEach(([key, kind]) => {
-        const td = document.createElement('td');
-        if (!['text', 'size', 'grade'].includes(kind)) td.setAttribute('data-num', '');
-        const c = cellFor(kind, row[key]);
-        td.textContent = c.text;
-        if (c.cls) td.className = c.cls;
-        if (c.color) td.style.color = c.color;
-        tr.appendChild(td);
-      });
-      el.appendChild(tr);
-    });
-  });
-
-  document.querySelectorAll('table[data-row-key="symbol"] thead th').forEach((th) => {
-    const field = th.getAttribute('data-field'), btn = th.querySelector('button');
-    if (!field || !btn) return;
-    btn.addEventListener('click', () => {
-      if (sortKey === field) {
-        sortDir = -sortDir;
-      } else {
-        sortKey = field;
-        // Numbers are most useful highest-first; letters and names are not,
-        // and a grade column sorted descending would put F at the top.
-        const sample = rowsOf('companies').map((r) => r[field]).find((v) => v !== '' && v != null);
-        sortDir = num(sample) == null ? 1 : -1;
-      }
-      document.querySelectorAll('table[data-row-key="symbol"] thead th')
-        .forEach((o) => o.removeAttribute('aria-sort'));
-      th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
-      dash.draw('table-body');
-    });
-  });
-
-  dash.draw('readings-body', (el) => {
-    const d = dash.data('regime_readings');
-    el.replaceChildren();
-    if (d.status !== 'ok') return;
-    rowsOf('regime_readings').forEach((row) => {
-      const tr = document.createElement('tr');
-      const a = document.createElement('td'); a.textContent = row.measure;
-      const b = document.createElement('td'); b.setAttribute('data-num', '');
-      const v = num(row.value);
-      b.textContent = v == null ? '—' : row.unit === 'pct' ? fmtPctS(v)
-        : row.unit === 'pp' ? fmtN(v) + '%' : fmtN(v);
-      tr.append(a, b); el.appendChild(tr);
-    });
-  });
-
-  dash.draw('regime-bars', (el) => {
-    const d = dash.data('regime_components');
-    el.replaceChildren();
-    if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
-    if (d.status !== 'ok') return;
-    rowsOf('regime_components').forEach((row) => {
-      const score = num(row.score), weight = num(row.weight);
-      const wrap = document.createElement('div'); wrap.className = 'vd-bar';
-      const n = document.createElement('span'); n.className = 'n'; n.textContent = row.component;
-      const v = document.createElement('span'); v.className = 'v';
-      v.textContent = (score == null ? '—' : fmtI(score)) + ' at '
-        + (weight == null ? '—' : fmtPct(weight)) + ' weight';
-      const t = document.createElement('span'); t.className = 't';
-      const i = document.createElement('i');
-      i.style.width = Math.max(0, Math.min(100, score ?? 0)) + '%';
-      i.style.background = dash.colors[0];
-      t.appendChild(i);
-      wrap.append(n, v, t); el.appendChild(wrap);
-    });
-  });
 })();
 </script>

@@ -369,6 +369,82 @@ def beneish_m_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
 # --------------------------------------------------------------------------- #
 # the main entry point
 # --------------------------------------------------------------------------- #
+def reconcile_income_statement(f: Fundamentals, shares) -> tuple:
+    """Check the income statement against itself before anything is divided by it.
+
+    Three faults showed up across a 515-company run, all of which produce
+    confident nonsense downstream rather than a missing value:
+
+    * **Revenue picked up one line of several.** Oscar Health came out with
+      $27m of revenue against $937m of operating income, which read as a 3,461%
+      operating margin and a price-to-sales of 362. United Rentals reported
+      $3.98bn of revenue against $10.66bn of cost of revenue -- a gross margin
+      of 172%, which is arithmetically impossible.
+    * **Net income in millions while everything else was in units.** FedEx
+      reported 4,433 against $5.5bn of operating income, giving a P/E of
+      16,455,434.
+    * Both are silent: every ratio built on them still computes.
+
+    Where an identity can repair the figure it is repaired, because
+    ``gross profit + cost of revenue`` *is* revenue. Where nothing can, the
+    figure is dropped so that the ratios built on it come out missing rather
+    than wrong. Returns ``(revenue, operating_income, net_income, notes)``.
+    """
+    notes: list[str] = []
+    rev = f.get("revenue")
+    ebit = f.get("operating_income")
+    ni = f.get("net_income")
+    gross = f.get("gross_profit")
+    cogs = f.get("cost_of_revenue")
+
+    # ---- revenue ----------------------------------------------------------
+    # Gross profit plus cost of revenue is revenue, by definition. Where the
+    # two sum to far more than the reported figure, the reported figure is a
+    # segment and the identity is the company.
+    if is_num(gross) and is_num(cogs) and is_num(rev) and rev > 0:
+        identity = gross + cogs
+        if identity > rev * 1.5:
+            notes.append(
+                f"Revenue was reported as {rev / 1e6:,.0f}m but gross profit plus "
+                f"cost of revenue comes to {identity / 1e6:,.0f}m; the larger "
+                "figure is the whole company and was used."
+            )
+            rev = identity
+
+    # A gross profit or an operating profit larger than revenue cannot happen.
+    # If the identity above could not repair it, revenue is not usable at all.
+    if is_num(rev) and rev > 0:
+        for label, value in (("gross profit", gross), ("operating income", ebit)):
+            if is_num(value) and value > rev * 1.05:
+                notes.append(
+                    f"Reported {label} ({value / 1e6:,.0f}m) exceeds reported "
+                    f"revenue ({rev / 1e6:,.0f}m), which cannot happen, so "
+                    "revenue and every margin and multiple built on it are "
+                    "withheld."
+                )
+                rev = NAN
+                break
+
+    # ---- net income -------------------------------------------------------
+    # Diluted EPS times the share count is an independent statement of the
+    # same number. Where they differ by orders of magnitude, one of them is
+    # scaled wrong, and the pair that agrees with operating income wins.
+    eps = f.get("eps_diluted")
+    if is_num(eps) and is_num(shares) and shares > 0 and is_num(ni) and ni != 0:
+        implied = eps * shares
+        if is_num(implied) and implied != 0:
+            ratio = abs(implied / ni)
+            if ratio > 100 or ratio < 0.01:
+                notes.append(
+                    f"Net income was reported as {ni:,.0f} but diluted EPS times "
+                    f"the share count comes to {implied:,.0f}, a factor of "
+                    f"{ratio:,.0f} apart; the figure consistent with the rest of "
+                    "the statement was used."
+                )
+                ni = implied
+    return rev, ebit, ni, notes
+
+
 # Two independent sources agreeing to within this much are taken to be
 # measuring the same thing.
 SHARE_AGREEMENT = 0.15
@@ -645,9 +721,7 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
     )
 
     # ---- raw TTM pass-throughs -------------------------------------------
-    rev = f.get("revenue")
-    ebit = f.get("operating_income")
-    ni = f.get("net_income")
+    rev, ebit, ni, income_notes = reconcile_income_statement(f, shares)
     cfo = f.get("cfo")
     capex = f.get("capex")
     fcf = free_cash_flow(f)
@@ -663,6 +737,8 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         "dividends_paid": f.get("dividends_paid"),
         "buybacks": f.get("buybacks"),
     })
+    m["income_notes"] = income_notes          # type: ignore[assignment]
+    m["revenue_reliable"] = float(is_num(rev))
     # TTM EPS recomputed from TTM net income: the reported EPS tag is per-period
     # and never sums to a trailing year once the share count moves.
     m["eps_ttm"] = safe_div(ni, shares)
@@ -733,6 +809,17 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         ("cfo", "cfo"), ("equity", "book_value"), ("dividends_paid", "dividend"),
     ):
         m.update(growth_block(f, concept, prefix))
+
+    # The growth rates come off the same annual series as the figure that
+    # failed reconciliation above, and that series was not repaired. Oscar
+    # Health's reads 64.9m falling to 28.6m, giving "sales shrinking 24% a
+    # year" for a company whose sales are in fact growing fast; CareTrust's
+    # holds zeros. A growth rate off a series we have just shown to be the
+    # wrong line item is worse than none.
+    if not is_num(rev):
+        for key in list(m):
+            if key.startswith("revenue_") and key != "revenue_reliable":
+                m[key] = NAN
 
     fcf_hist = _annual_fcf(f)
     if not fcf_hist.empty:

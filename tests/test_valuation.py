@@ -424,3 +424,68 @@ class TestImpliedReturnForModelsOtherThanDCF:
         rate, floored = residual_income.implied_cost_of_equity(metrics, value)
         assert not floored
         assert rate == pytest.approx(0.09, abs=2e-3)
+
+
+class TestIncomeStatementReconciliation:
+    """Three faults in a 515-company run produced confident nonsense rather
+    than a missing value, because every ratio built on them still computes."""
+
+    @staticmethod
+    def _f(healthy_company, **over):
+        for k, v in over.items():
+            healthy_company.ttm[k] = v
+        return healthy_company
+
+    def test_a_segment_revenue_is_repaired_by_the_identity(self, healthy_company):
+        """United Rentals reported $3.98bn of revenue against $10.66bn of cost
+        of revenue -- a 172% gross margin, which cannot happen. Gross profit
+        plus cost of revenue IS revenue, so the identity repairs it."""
+        from stocklab.analysis.metrics import reconcile_income_statement
+        c = self._f(healthy_company, revenue=400.0, gross_profit=700.0,
+                    cost_of_revenue=1000.0)
+        rev, _, _, notes = reconcile_income_statement(c, shares=10.0)
+        assert rev == pytest.approx(1700.0)
+        assert any("whole company" in n for n in notes)
+
+    def test_revenue_smaller_than_operating_profit_is_withheld(self, healthy_company):
+        """Oscar Health: $27m of revenue against $937m of operating income,
+        which read as a 3,461% margin and a price-to-sales of 362. Nothing can
+        repair it, so nothing is published."""
+        from stocklab.analysis.metrics import reconcile_income_statement
+        c = self._f(healthy_company, revenue=27.0, operating_income=937.0,
+                    gross_profit=float("nan"), cost_of_revenue=float("nan"))
+        rev, _, _, notes = reconcile_income_statement(c, shares=10.0)
+        assert math.isnan(rev)
+        assert any("cannot happen" in n for n in notes)
+
+    def test_net_income_in_the_wrong_units_is_corrected(self, healthy_company):
+        """FedEx reported 4,433 against $5.5bn of operating income, giving a
+        P/E of 16,455,434. Diluted EPS times shares says $4.4bn."""
+        from stocklab.analysis.metrics import reconcile_income_statement
+        c = self._f(healthy_company, net_income=4433.0, eps_diluted=18.55)
+        _, _, ni, notes = reconcile_income_statement(c, shares=236_733_117.0)
+        assert ni == pytest.approx(18.55 * 236_733_117.0)
+        assert any("factor" in n for n in notes)
+
+    def test_a_consistent_statement_is_left_alone(self, healthy_company):
+        from stocklab.analysis.metrics import reconcile_income_statement
+        before = (healthy_company.get("revenue"), healthy_company.get("operating_income"),
+                  healthy_company.get("net_income"))
+        rev, ebit, ni, notes = reconcile_income_statement(healthy_company, shares=10.0)
+        assert (rev, ebit, ni) == before
+        assert not notes
+
+    def test_growth_is_withheld_when_revenue_is(self, healthy_company):
+        """The growth rates come off the same annual series as the figure that
+        failed, and that series is not repaired. Oscar Health's reads 64.9m
+        falling to 28.6m -- "sales shrinking 24% a year" for a company whose
+        sales are growing fast."""
+        from stocklab.analysis.metrics import compute_metrics
+        healthy_company.ttm["revenue"] = 27.0
+        healthy_company.ttm["operating_income"] = 937.0
+        healthy_company.ttm["gross_profit"] = float("nan")
+        healthy_company.ttm["cost_of_revenue"] = float("nan")
+        m = compute_metrics(healthy_company, price=50.0)
+        assert m["revenue_reliable"] == 0.0
+        assert math.isnan(m["revenue_cagr_3y"])
+        assert math.isnan(m["ps"])
