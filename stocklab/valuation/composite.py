@@ -93,6 +93,10 @@ class ValuationReport:
 # Base weights. DCF gets the most because it is the only model that handles
 # growth explicitly; EPV is next because it is the hardest to fool. Graham's
 # number is a sanity floor, not a valuation, hence its small weight.
+# How far from the median of the applicable models an estimate may sit before
+# it is treated as a broken model rather than a dissenting opinion.
+OUTLIER_FACTOR = 5.0
+
 BASE_WEIGHTS = {
     "DCF (FCFF, 10y fade)": 0.30,
     "Earnings Power Value": 0.22,
@@ -217,6 +221,29 @@ def value(
     # ---- blend ------------------------------------------------------------
     usable = [e for e in estimates if e.applicable and is_num(e.value_per_share)
               and e.value_per_share > 0]
+
+    # A model whose answer is orders of magnitude away from the others is not
+    # contributing to the blend, it is hijacking it. Charter's five estimates
+    # ran from $39.91 to $23,127.64 -- a 580-fold spread for a $118 share --
+    # and averaging them produced a "fair value" of $5,728 and a margin of
+    # safety of 4,751%. The median is robust to exactly this, so estimates
+    # more than a factor of OUTLIER_FACTOR from it are set aside and named.
+    if len(usable) >= 3:
+        ordered = sorted(e.value_per_share for e in usable)
+        mid = ordered[len(ordered) // 2] if len(ordered) % 2 else \
+            (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2.0
+        kept = [e for e in usable
+                if mid / OUTLIER_FACTOR <= e.value_per_share <= mid * OUTLIER_FACTOR]
+        if kept and len(kept) < len(usable):
+            for e in usable:
+                if e not in kept:
+                    notes.append(
+                        f"{e.name} valued it at {e.value_per_share:,.2f} against a "
+                        f"median of {mid:,.2f} across the models that applied; that "
+                        "is too far out to average in and was set aside."
+                    )
+            usable = kept
+
     if usable:
         total_weight = sum(e.weight for e in usable)
         fair = sum(e.value_per_share * e.weight for e in usable) / total_weight
@@ -225,6 +252,17 @@ def value(
         midpoint = (low + high) / 2.0
         dispersion = safe_div(high - low, midpoint)
     else:
+        fair = low = high = dispersion = NAN
+
+    # One model is not a valuation. Publishing a single uncorroborated figure
+    # is how Universe Pharmaceuticals came out "51,122% below fair value" on
+    # an earnings-power estimate of $71,061 for a $1.39 share.
+    if len(usable) < 2:
+        if usable:
+            notes.append(
+                f"Only one valuation model applied ({usable[0].name}), so nothing "
+                "corroborates it and no fair value is published."
+            )
         fair = low = high = dispersion = NAN
 
     # ---- reverse DCF and the premium being offered ------------------------

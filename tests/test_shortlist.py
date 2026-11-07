@@ -110,3 +110,30 @@ class TestCategories:
         dear = {**QUALIFIER, "margin_of_safety": -0.5, "revenue_cagr_3y": 0.35}
         assert categorise(dear) == "growth"
         assert not assess(dear)["qualifies"]
+
+
+class TestTheBuilderImportsDoNotCollide:
+    """stocklab.analysis.regime and stocklab.shortlist both export `assess`.
+    Importing both under one name shadowed the regime's, and every snapshot
+    after that silently shipped without a market backdrop -- three missing
+    files and a caught "'str' object has no attribute 'get'"."""
+
+    def test_the_two_assess_functions_are_distinct(self):
+        from stocklab.analysis.regime import assess as regime_assess
+        from stocklab.shortlist import assess as shortlist_assess
+        assert regime_assess is not shortlist_assess
+
+    def test_the_builder_does_not_bind_both_to_one_name(self):
+        import ast
+        import pathlib
+        source = pathlib.Path("scripts/build_desk_snapshot.py").read_text()
+        bound: dict[str, str] = {}
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            for alias in node.names:
+                name = alias.asname or alias.name
+                assert name not in bound, (
+                    f"{node.module}.{alias.name} is imported as {name!r}, which "
+                    f"{bound.get(name)} already binds")
+                bound[name] = node.module or ""

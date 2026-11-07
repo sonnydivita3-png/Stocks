@@ -37,7 +37,12 @@ from stocklab.company import Company  # noqa: E402
 from stocklab.data.providers.sec import fetch_frame, fetch_ticker_map  # noqa: E402
 from stocklab.data.universe import MEGA_CAP_SAMPLE, common_stocks  # noqa: E402
 from stocklab.scoring import score, size_band  # noqa: E402
-from stocklab.shortlist import GATES, assess  # noqa: E402
+# Aliased on purpose: stocklab.analysis.regime also exports `assess`, and
+# importing both under one name silently shadowed the regime's. Every run
+# after that failed the market backdrop with "'str' object has no attribute
+# 'get'" -- the regime's own symbol being called with the shortlist's body.
+from stocklab.shortlist import GATES  # noqa: E402
+from stocklab.shortlist import assess as assess_company  # noqa: E402
 from stocklab.util.mathx import is_num  # noqa: E402
 from stocklab.valuation import composite  # noqa: E402
 
@@ -183,7 +188,7 @@ def analyse(symbol: str) -> dict | None:
     # What kind of business it is, and whether it clears every condition for a
     # long hold. The grade averages its four pillars, so a strength cancels a
     # weakness; this is a set of gates where nothing compensates for anything.
-    verdict = assess({
+    verdict = assess_company({
         **metrics,
         "profitable": row["profitable"],
         "coverage": card.coverage,
