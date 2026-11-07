@@ -64,7 +64,7 @@ COLUMNS = [
     "altman_z", "rev_cagr_3y", "rev_cagr_5y", "rev_trend_r2", "pe", "ps",
     "fcf_yield", "dividend_yield", "fair_value", "margin_of_safety",
     "implied_return", "implied_erp", "implied_method", "implied_is_floor",
-    "confidence", "from_52w_high",
+    "confidence", "share_count_ok", "from_52w_high",
     "momentum_12_1", "vol63", "years_of_data",
 ]
 
@@ -165,6 +165,9 @@ def analyse(symbol: str) -> dict | None:
         "implied_method": report.implied_return_method,
         "implied_is_floor": bool(report.implied_return_is_floor),
         "confidence": report.confidence,
+        # 0 means no two filing sources agreed on how many shares exist, so
+        # market value and every multiple built on it are withheld.
+        "share_count_ok": bool(metrics.get("share_count_reliable")),
         "from_52w_high": num(technicals.get("pct_from_52w_high")),
         "momentum_12_1": num(technicals.get("momentum_12_1")),
         "vol63": num(technicals.get("vol63")),

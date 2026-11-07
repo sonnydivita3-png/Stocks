@@ -203,24 +203,71 @@ class TestDDMApplicability:
 
 class TestShareCounts:
     def test_cover_page_used_when_corroborated(self, healthy_company):
-        count, basis, notes = share_count(healthy_company)
+        count, basis, notes, ok = share_count(healthy_company)
         assert count == pytest.approx(100.0)
-        assert basis == "cover page" and not notes
+        assert basis == "cover page" and ok and not notes
 
     def test_multi_class_cover_page_is_overridden(self, healthy_company):
         # Mastercard's cover page reads 122m against 884m diluted shares;
         # trusting it values the company at a seventh of its market cap.
         healthy_company.ttm["shares_outstanding"] = 14.0
-        count, basis, notes = share_count(healthy_company)
+        count, basis, notes, ok = share_count(healthy_company)
         assert count == pytest.approx(100.0)
-        assert basis == "diluted total" and notes
+        assert basis == "diluted total" and notes and ok
 
     def test_falls_back_to_net_income_over_eps(self, healthy_company):
         healthy_company.ttm["shares_outstanding"] = float("nan")
         healthy_company.ttm["shares_diluted"] = float("nan")
         healthy_company.ttm["shares_basic"] = float("nan")
-        count, basis, _ = share_count(healthy_company)
-        assert count > 0 and basis == "diluted total"
+        count, basis, _, _ = share_count(healthy_company)
+        assert count > 0
+
+    def test_a_units_switch_is_outvoted_rather_than_obeyed(self, healthy_company):
+        """McDonald's reported 750,100,000 diluted shares for 2020 and 751.8
+        for 2021 -- the same figure in millions. The old fixed priority put
+        diluted first, which priced McDonald's at $197,000 and gave it a fair
+        value of $206m a share. Two sources that still agree now outvote it."""
+        healthy_company.ttm["shares_diluted"] = 100.0 / 1e6
+        count, basis, notes, ok = share_count(healthy_company)
+        assert count == pytest.approx(100.0, rel=0.15)
+        assert ok
+        assert any("factor" in n for n in notes)
+
+    def test_a_count_no_other_source_supports_is_not_trusted(self, healthy_company):
+        """Berkshire offers only a cover-page count, which is a Class A
+        figure. Nothing built on it should be published."""
+        healthy_company.ttm["shares_diluted"] = float("nan")
+        healthy_company.ttm["shares_basic"] = float("nan")
+        healthy_company.ttm["eps_diluted"] = float("nan")
+        count, basis, notes, ok = share_count(healthy_company)
+        assert count == pytest.approx(100.0)
+        assert not ok
+        assert any("corroborates" in n for n in notes)
+
+    def test_a_cover_page_far_above_the_total_wins(self, healthy_company):
+        """A cover page can under-report (one class of several). It cannot
+        over-report: those shares exist. Shift4's diluted average and its
+        implied-by-EPS count agreed at 1.3m against a cover page of 81.2m,
+        two figures from the same mis-scaled filing outvoting the right one."""
+        healthy_company.ttm["shares_diluted"] = 1.0
+        healthy_company.ttm["shares_basic"] = 1.0
+        healthy_company.ttm["eps_diluted"] = (
+            healthy_company.ttm["net_income"] / 1.0)
+        count, basis, notes, ok = share_count(healthy_company)
+        assert count == pytest.approx(100.0)
+        assert basis == "cover page"
+        assert ok
+
+    def test_an_untrusted_count_suppresses_market_value(self, healthy_company):
+        """An understated share count looks exactly like a bargain, so no
+        multiple built on one is published."""
+        from stocklab.analysis.metrics import compute_metrics
+        healthy_company.ttm["shares_diluted"] = float("nan")
+        healthy_company.ttm["shares_basic"] = float("nan")
+        healthy_company.ttm["eps_diluted"] = float("nan")
+        m = compute_metrics(healthy_company, price=50.0)
+        assert m["share_count_reliable"] == 0.0
+        assert math.isnan(m["market_cap"])
 
 
 class TestSplitNormalisation:

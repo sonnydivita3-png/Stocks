@@ -369,31 +369,45 @@ def beneish_m_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
 # --------------------------------------------------------------------------- #
 # the main entry point
 # --------------------------------------------------------------------------- #
-def share_count(f: Fundamentals) -> tuple[float, str, list[str]]:
-    """Best available total share count, and where it came from.
+# Two independent sources agreeing to within this much are taken to be
+# measuring the same thing.
+SHARE_AGREEMENT = 0.15
 
-    Three sources, none individually reliable:
+
+def share_count(f: Fundamentals) -> tuple[float, str, list[str], bool]:
+    """Best available total share count, where it came from, and whether to trust it.
+
+    Four sources, none individually reliable:
 
     * the **cover page** (``dei:EntityCommonStockSharesOutstanding``) is the
       most current, but ``companyfacts`` omits dimensional facts, so for a
       multi-class registrant it returns one class or nothing. Mastercard's
       cover page reads 122m against 884m diluted shares, which would value the
-      company at a seventh of its market cap;
+      company at a seventh of its market cap. It also goes stale: Charter's sat
+      at 112,438,828 for five straight years while the real count fell to 138m;
     * the **diluted weighted average** is a total across classes and is the
-      denominator of reported EPS, but it is a trailing period average;
-    * **net income divided by diluted EPS** recovers that same denominator even
-      when the share count itself is only tagged dimensionally -- which is the
-      only route that works for some multi-class filers.
+      denominator of reported EPS, but it is a trailing period average, and
+      filers change its units without warning. McDonald's reported 750,100,000
+      diluted shares for 2020 and ``751.8`` for 2021 -- the same number in
+      millions. Taken at face value that priced McDonald's at $197,000 and gave
+      it a fair value of $206m a share;
+    * **net income divided by diluted EPS** recovers that denominator even when
+      the share count is only tagged dimensionally, which is the only route
+      that works for some multi-class filers;
+    * **shares issued** is a last resort: it ignores treasury stock.
 
-    The cover-page figure is used when it corroborates one of the other two
-    (within 15%), since it is the most current; otherwise it is treated as
-    incomplete and a total is used instead.
+    Rather than rank these in a fixed order -- which is what sent McDonald's to
+    $197,000, since the broken figure sat at the top of the order -- the sources
+    are compared against each other and the count supported by the **largest
+    group that agrees** wins. A units error or a stale cover page is then
+    outvoted by the two sources that still agree, and a note records it.
+
+    Where no two sources corroborate each other, the count is returned with
+    ``reliable=False``. Nothing built on a share count -- market cap, any
+    multiple, any per-share figure, any valuation -- should be published for
+    such a company: an understated share count looks exactly like a bargain.
     """
     notes: list[str] = []
-    cover = f.get("shares_outstanding")
-    diluted = f.get("shares_diluted")
-    basic = f.get("shares_basic")
-    issued = f.get("shares_issued")
 
     implied = NAN
     eps = f.get("eps_diluted")
@@ -403,28 +417,73 @@ def share_count(f: Fundamentals) -> tuple[float, str, list[str]]:
         if candidate > 0:
             implied = candidate
 
-    reference = first_finite(diluted, implied, basic)
-    if is_num(cover) and is_num(reference):
-        ratio = cover / reference
-        if 0.85 <= ratio <= 1.15:
-            return float(cover), "cover page", notes
+    # Ordered by how much weight a tie should give them: the cover page is the
+    # most current, the diluted average the most complete across share classes.
+    sources = [
+        ("cover page", f.get("shares_outstanding")),
+        ("diluted total", f.get("shares_diluted")),
+        ("implied by diluted EPS", implied),
+        ("basic total", f.get("shares_basic")),
+    ]
+    usable = [(label, float(v)) for label, v in sources if is_num(v) and v > 0]
+    if not usable:
+        issued = f.get("shares_issued")
+        if is_num(issued) and issued > 0:
+            return float(issued), "shares issued", [
+                "Only shares issued was available, which counts treasury stock "
+                "the company has bought back."], False
+        return NAN, "unavailable", ["No usable share count could be determined."], False
+
+    # Group sources that agree with one another within the tolerance.
+    groups: list[list[tuple[str, float]]] = []
+    for label, value in usable:
+        for group in groups:
+            anchor = group[0][1]
+            if abs(value / anchor - 1.0) <= SHARE_AGREEMENT:
+                group.append((label, value))
+                break
+        else:
+            groups.append([(label, value)])
+    groups.sort(key=lambda g: (-len(g), usable.index(g[0])))
+    winner = groups[0]
+    value = sum(v for _, v in winner) / len(winner)
+    basis = winner[0][0]
+
+    outvoted = [(label, v) for group in groups[1:] for label, v in group]
+    for label, other in outvoted:
+        ratio = other / value if value else NAN
         notes.append(
-            f"Cover-page share count ({cover/1e6:,.1f}m) differs from the total "
-            f"implied by diluted EPS ({reference/1e6:,.1f}m) by "
-            f"{abs(ratio - 1):.0%}; treating it as a single share class and "
-            "using the diluted total instead."
+            f"The {label} share count ({other:,.0f}) disagrees with the "
+            f"{len(winner)} source(s) that agree on {value:,.0f} "
+            f"by a factor of {ratio:,.4g}; it was not used."
         )
-        return float(reference), "diluted total", notes
-    if is_num(reference):
-        return float(reference), "diluted total", notes
-    if is_num(cover):
-        notes.append("Only a cover-page share count is available; for a "
-                     "multi-class issuer this may cover one class only.")
-        return float(cover), "cover page", notes
-    value = first_finite(issued)
-    if is_num(value):
-        return float(value), "shares issued", notes
-    return NAN, "unavailable", ["No usable share count could be determined."]
+
+    # A cover page can under-report -- it returns one class of a multi-class
+    # registrant, which is why Mastercard's reads 122m against 884m diluted.
+    # It cannot plausibly over-report: the registrant is stating shares that
+    # exist today. So a cover page far ABOVE the chosen total means the chosen
+    # total is missing shares, not that the cover page is wrong. Shift4's
+    # diluted average and its implied-by-EPS count agreed with each other at
+    # 1.3m against a cover page of 81.2m -- two figures derived from the same
+    # mis-scaled filing outvoting the one that was right.
+    cover_value = f.get("shares_outstanding")
+    if is_num(cover_value) and cover_value > 0 and value > 0 \
+            and cover_value / value > 1.5 and basis != "cover page":
+        notes.append(
+            f"The {basis} count ({value:,.0f}) is well below the "
+            f"{cover_value:,.0f} shares the cover page says exist, which a "
+            "share count cannot be; the cover page was used instead."
+        )
+        return float(cover_value), "cover page", notes, True
+
+    if len(winner) == 1:
+        notes.append(
+            f"Only one share count source was available ({basis}), so nothing "
+            "corroborates it. Market value and every figure built on it are "
+            "withheld for this company."
+        )
+        return value, basis, notes, False
+    return value, basis, notes, True
 
 
 def normalize_split_basis(series: pd.Series, splits: pd.Series | None,
@@ -499,25 +558,29 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
     cfg = settings()
 
     # ---- scale ------------------------------------------------------------
-    shares_out, shares_basis, share_notes = share_count(f)
-    # Per-share fundamentals use the diluted weighted average so they line up
-    # with the earnings period; market cap uses the best total available.
-    shares = first_finite(f.get("shares_diluted"), f.get("shares_basic"), shares_out)
+    shares_out, shares_basis, share_notes, shares_ok = share_count(f)
+    # Per-share fundamentals once used the diluted weighted average directly,
+    # which is the figure filers silently switch to millions: McDonald's came
+    # out at $197,000 of market value. They now use the reconciled count, and
+    # the diluted average only where it corroborates it.
+    diluted = first_finite(f.get("shares_diluted"), f.get("shares_basic"))
+    if is_num(diluted) and is_num(shares_out) and shares_out > 0 \
+            and abs(diluted / shares_out - 1.0) <= 0.30:
+        shares = diluted
+    else:
+        shares = shares_out
     m["shares"] = shares
     m["shares_outstanding"] = shares_out
     m["share_count_basis"] = shares_basis       # type: ignore[assignment]
     m["share_count_notes"] = share_notes        # type: ignore[assignment]
-    # False means only a possibly-single-class cover-page count was available,
-    # so market cap and every multiple built on it may be understated. Screens
-    # should exclude these names from valuation rankings rather than rank them
-    # as cheap, which is exactly what an understated market cap looks like.
-    m["share_count_reliable"] = float(
-        shares_basis == "diluted total"
-        or (shares_basis == "cover page" and not share_notes)
-    )
+    # False means no two sources corroborated each other, so the count may be
+    # one share class, a stale cover page or a units error. Market cap and
+    # every multiple built on it are suppressed below rather than published:
+    # an understated share count looks exactly like a bargain.
+    m["share_count_reliable"] = float(shares_ok)
     m["dilution_overhang"] = safe_div(shares, shares_out) - 1.0 if is_num(shares) else NAN
 
-    if is_num(price) and is_num(shares_out) and shares_out > 0:
+    if shares_ok and is_num(price) and is_num(shares_out) and shares_out > 0:
         market_cap = float(price) * shares_out
     else:
         market_cap = NAN
