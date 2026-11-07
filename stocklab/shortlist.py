@@ -107,7 +107,29 @@ MIN_PROFITABLE_YEARS = 4          # of the last five
 MAX_ABOVE_OWN_AVERAGE = 2.0       # latest operating profit vs its own 5y average
 MIN_COVERAGE = 14
 MIN_QUALITY = 60
+
+# The safety bar rises as companies get smaller, because the universe does.
+# Across 515 companies the share losing money runs 2% of mega caps, 9% of
+# large, 28% of mid, 38% of small and 83% of micro, and median financial
+# safety falls 74 -> 69 -> 64 -> 54 -> 40 across the same bands. A small
+# company has less access to capital when a year goes wrong, so the same
+# leverage is a materially worse risk. This is the one place where size
+# genuinely changes the test rather than just the odds.
+SAFETY_BY_SIZE = {"mega": 55, "large": 55, "mid": 60, "small": 65, "micro": 70}
 MIN_SAFETY = 55
+
+# You cannot build or leave a position in something that barely trades, and
+# the thinnest names are also where filing errors and manipulation live.
+LIQUIDITY_BY_SIZE = {"mega": 1e6, "large": 1e6, "mid": 1e6,
+                     "small": 2e6, "micro": 2e6}
+
+
+def safety_bar(m: dict) -> float:
+    return SAFETY_BY_SIZE.get(str(m.get("size") or ""), MIN_SAFETY)
+
+
+def liquidity_bar(m: dict) -> float:
+    return LIQUIDITY_BY_SIZE.get(str(m.get("size") or ""), 1e6)
 MIN_GROWTH_SCORE = 45
 MAX_MARGIN_OF_SAFETY = 1.0
 AGREED = ("moderate", "reasonable")
@@ -171,7 +193,12 @@ VALUE_GATES = INTEGRITY + (
     Gate("quality", "It is a good business",
          "Earns too little on the money put into it."),
     Gate("safety", "It could survive a bad year",
-         "Carries more debt, or thinner cover, than a long hold should."),
+         "Carries more debt, or thinner cover, than a company of its size "
+         "should. The bar rises as companies get smaller, because a small "
+         "company has less access to capital when a year goes wrong."),
+    Gate("tradeable", "You could actually buy and sell it",
+         "Fewer than a million dollars of stock change hands a day, so a "
+         "position is hard to build and harder to leave."),
     Gate("growing", "It is not shrinking",
          "Sales are flat or falling; time works against you."),
     Gate("beats_treasury", "It is priced to beat a government bond",
@@ -205,7 +232,8 @@ def _value(m: dict) -> dict[str, bool]:
                            or sales_growth >= GROWTH_3Y),
         "covered": _n(m, "coverage", 0) >= MIN_COVERAGE,
         "quality": _n(m, "quality", -1) >= MIN_QUALITY,
-        "safety": _n(m, "safety", -1) >= MIN_SAFETY,
+        "safety": _n(m, "safety", -1) >= safety_bar(m),
+        "tradeable": _n(m, "dollar_volume_50d", 0) >= liquidity_bar(m),
         "growing": _n(m, "growth", -1) >= MIN_GROWTH_SCORE,
         "beats_treasury": is_num(erp) and erp > 0
         and not m.get("implied_return_is_floor"),
@@ -242,6 +270,9 @@ GROWTH_GATES = INTEGRITY + (
     Gate("survivable", "A bad year would not finish it",
          "Too much debt, or too little short-term cover, for a company whose "
          "value depends on reaching a larger future."),
+    Gate("tradeable", "You could actually buy and sell it",
+         "Too little stock changes hands each day to build a position in, or "
+         "to leave when the growth stops."),
     Gate("priced_within_record", "The price does not assume more than it has ever done",
          "The share price already implies faster growth than the company has "
          "actually delivered. You would be paying for an acceleration that "
@@ -270,6 +301,7 @@ def _growth(m: dict) -> dict[str, bool]:
         or _n(m, "cash_runway_years", -1) >= 3.0,
         "survivable": (not is_num(net_debt_ebitda) or net_debt_ebitda <= 4.0)
         and _n(m, "current_ratio", 99) >= 1.0,
+        "tradeable": _n(m, "dollar_volume_50d", 0) >= liquidity_bar(m),
         # The reverse DCF says what growth the price requires. Requiring more
         # than the company has delivered is the definition of paying up for
         # hope, and it is the one price test that suits a growth company --
@@ -307,6 +339,9 @@ SPECULATIVE_GATES = INTEGRITY + (
          "the outcome you are speculating on."),
     Gate("solvent", "It can pay its bills this year",
          "Short-term assets do not comfortably cover short-term liabilities."),
+    Gate("tradeable", "You could actually get out",
+         "Too little stock changes hands each day. In the one place where "
+         "you are most likely to want to sell quickly, you could not."),
 )
 
 
@@ -323,6 +358,7 @@ def _speculative(m: dict) -> dict[str, bool]:
         "dilution_bounded": _n(m, "share_count_cagr_3y", 0.0) <= SPEC_MAX_DILUTION,
         "not_priced_as_a_success": _n(m, "ev_sales", 0.0) <= SPEC_MAX_EV_SALES,
         "solvent": _n(m, "current_ratio", -1) >= SPEC_MIN_CURRENT_RATIO,
+        "tradeable": _n(m, "dollar_volume_50d", 0) >= liquidity_bar(m),
     }
 
 

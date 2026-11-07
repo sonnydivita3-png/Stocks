@@ -20,6 +20,7 @@ QUALIFIER = {
     # Earnings that repeat: five profitable years, this one in line with them.
     "profitable_years": 5.0, "profitable_years_of": 5.0,
     "earnings_vs_own_average": 1.2,
+    "size": "large", "dollar_volume_50d": 40_000_000.0,
 }
 
 
@@ -164,6 +165,7 @@ class TestEarningsThatDoNotRepeat:
         "implied_equity_premium": 0.04, "confidence": "moderate",
         "profitable_years": 5.0, "profitable_years_of": 5.0,
         "earnings_vs_own_average": 1.2,
+        "size": "large", "dollar_volume_50d": 40_000_000.0,
     }
 
     def test_one_good_year_in_five_does_not_qualify(self):
@@ -211,12 +213,14 @@ class TestThreeScreensNotOne:
         "share_count_cagr_3y": 0.01, "rule_of_40": 48.0, "fcf": 500.0,
         "net_debt_to_ebitda": 0.4, "current_ratio": 2.4,
         "implied_growth": 0.22, "historical_growth": 0.30,
+        "size": "large", "dollar_volume_50d": 40_000_000.0,
     }
     PUNT = {
         "share_count_reliable": 1.0, "revenue_reliable": 1.0, "profitable": False,
         "revenue": 180.0, "revenue_cagr_3y": 0.55, "gross_margin": 0.38,
         "operating_margin_delta_3y": 0.08, "cash_runway_years": 3.4,
         "share_count_cagr_3y": 0.08, "ev_sales": 6.0, "current_ratio": 2.9,
+        "size": "small", "dollar_volume_50d": 9_000_000.0,
     }
 
     def test_a_grower_passes_the_growth_screen(self):
@@ -270,3 +274,45 @@ class TestThreeScreensNotOne:
         spiked = {"earnings_vs_own_average": 3.0, "revenue_cagr_3y": 0.01}
         assert gate_results(grew, "value")["not_a_windfall"]
         assert not gate_results(spiked, "value")["not_a_windfall"]
+
+
+class TestSizeChangesSomeConditionsAndNotOthers:
+    """Across 515 companies the share losing money runs 2% of mega caps, 9%
+    of large, 28% of mid, 38% of small and 83% of micro, and median financial
+    safety falls 74 -> 69 -> 64 -> 54 -> 40. The small-cap universe is mostly
+    junk, so the quality and survival bar should rise as size falls -- not
+    fall to let more of them through."""
+
+    def test_the_safety_bar_rises_as_companies_get_smaller(self):
+        from stocklab.shortlist import safety_bar
+        bars = [safety_bar({"size": s})
+                for s in ("mega", "large", "mid", "small", "micro")]
+        assert bars == sorted(bars)
+        assert bars[-1] > bars[0]
+
+    def test_the_same_balance_sheet_passes_for_a_large_company_and_not_a_micro(self):
+        middling = {"safety": 58.0}
+        assert gate_results({**TestThreeScreensNotOne.GROWER, **middling,
+                             "size": "large"}, "value")["safety"]
+        assert not gate_results({**TestThreeScreensNotOne.GROWER, **middling,
+                                 "size": "micro"}, "value")["safety"]
+
+    def test_something_you_cannot_trade_is_refused(self):
+        thin = {"dollar_volume_50d": 120_000.0, "size": "micro"}
+        assert not gate_results(thin, "value")["tradeable"]
+        assert not gate_results(thin, "growth")["tradeable"]
+        assert not gate_results(thin, "speculative")["tradeable"]
+
+    def test_the_liquidity_bar_is_higher_for_the_smallest(self):
+        from stocklab.shortlist import liquidity_bar
+        assert liquidity_bar({"size": "micro"}) > liquidity_bar({"size": "large"})
+
+    def test_the_price_tests_do_not_move_with_size(self):
+        """A dollar of value is a dollar. Loosening the valuation bar for
+        small companies to get more of them on a list would be fitting the
+        rules to a wanted answer."""
+        dear = {"margin_of_safety": -0.2, "implied_equity_premium": -0.01,
+                "confidence": "moderate"}
+        for size in ("mega", "large", "mid", "small", "micro"):
+            got = gate_results({**dear, "size": size}, "value")
+            assert not got["below_fair"] and not got["beats_treasury"]

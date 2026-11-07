@@ -78,7 +78,7 @@ COLUMNS = [
     "growth_qualifies", "growth_passed", "growth_total", "growth_failed",
     "speculative_qualifies", "speculative_passed", "speculative_total",
     "speculative_failed", "from_52w_high",
-    "momentum_12_1", "vol63", "years_of_data",
+    "momentum_12_1", "vol63", "dollar_volume_50d", "years_of_data",
 ]
 
 
@@ -188,6 +188,7 @@ def analyse(symbol: str) -> dict | None:
         "earnings_vs_own_average": num(metrics.get("earnings_vs_own_average")),
         "from_52w_high": num(technicals.get("pct_from_52w_high")),
         "momentum_12_1": num(technicals.get("momentum_12_1")),
+        "dollar_volume_50d": num(technicals.get("dollar_volume_50d")),
         "vol63": num(technicals.get("vol63")),
         "years_of_data": num(metrics.get("years_of_data")),
     }
@@ -200,6 +201,8 @@ def analyse(symbol: str) -> dict | None:
     # weakness; this is a set of gates where nothing compensates for anything.
     verdict = assess_company({
         **metrics,
+        "size": row["size"],
+        "dollar_volume_50d": technicals.get("dollar_volume_50d"),
         "profitable": row["profitable"],
         "coverage": card.coverage,
         "quality": card.quality, "growth": card.growth,
