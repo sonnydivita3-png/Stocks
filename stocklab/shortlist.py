@@ -32,6 +32,7 @@ CATEGORY_WORDS = {
     "steady": "Steady",
     "shrinking": "Shrinking",
     "speculative": "Speculative",
+    "hard_to_value": "Hard to value",
     "unclear": "Cannot be sized",
 }
 
@@ -51,7 +52,11 @@ def categorise(m: dict) -> str:
     if not m.get("profitable"):
         return "speculative"
     if not is_num(m.get("fair_value")) or (m.get("coverage") or 0) < MIN_COVERAGE_TO_VALUE:
-        return "speculative"
+        # Not the same thing as speculative, and the distinction matters to a
+        # reader without a finance background. Apollo and First Bancorp are
+        # large, profitable and long-established; what is missing is a
+        # valuation we are willing to stand behind, not the earnings.
+        return "hard_to_value"
 
     growth = m.get("revenue_cagr_3y")
     roic = m.get("roic_5y_avg") if is_num(m.get("roic_5y_avg")) else m.get("roic")

@@ -215,8 +215,8 @@
         money to the US government, if the business performs as its history suggests.</span></div>
       <div class="vd-pillar"><b>What kind of company</b>
         <span>Each one is labelled: growing fast, a quality compounder, pays an income,
-        steady, shrinking, or speculative. The label describes the business, not whether
-        the price is right.</span></div>
+        steady, shrinking, hard to value, or speculative. The label describes the
+        business, not whether the price is right.</span></div>
       <div class="vd-pillar"><b>Not yet profitable</b>
         <span>A label on companies still making a loss. Their price score is weak or missing,
         because there are no profits to value.</span></div>
@@ -341,6 +341,7 @@
           <option value="income">paying an income</option>
           <option value="steady">steady businesses</option>
           <option value="speculative">speculative</option>
+          <option value="hard_to_value">hard to value</option>
           <option value="small">small companies</option>
           <option value="mid">mid-sized companies</option>
           <option value="large">large companies</option>
@@ -449,7 +450,8 @@
   const CATEGORY_WORD = {
     growth: 'Growing fast', compounder: 'Quality compounder',
     income: 'Pays an income', steady: 'Steady', shrinking: 'Shrinking',
-    speculative: 'Speculative', unclear: 'Cannot be sized',
+    speculative: 'Speculative', hard_to_value: 'Hard to value',
+    unclear: 'Cannot be sized',
   };
   const dollars = (v) => (v == null || !isFinite(v)) ? '\u2014'
     : '$' + (Math.abs(v) >= 1000 ? d3.format(',.0f')(v) : d3.format(',.2f')(v));
@@ -748,9 +750,14 @@
              pick: (r) => r.category === 'income'},
     steady: {note: 'Profitable, growing slowly. Rarely exciting, rarely a disaster.',
              pick: (r) => r.category === 'steady'},
-    speculative: {note: 'No profits yet, or too little filed history to value them. '
-                        + 'Most companies in this group lose money for their owners.',
+    speculative: {note: 'No profits yet. Their price rests on a future that has not '
+                        + 'happened, and most companies in this group lose money for '
+                        + 'their owners.',
                   pick: (r) => r.category === 'speculative'},
+    hard_to_value: {note: 'Profitable and established, but the valuation methods did '
+                          + 'not agree closely enough to stand behind a figure. Not the '
+                          + 'same thing as speculative.',
+                    pick: (r) => r.category === 'hard_to_value'},
     small: {note: 'Worth under about two billion dollars.',
             pick: (r) => SMALLER.has(r.size)},
     mid: {note: 'Worth roughly two to ten billion dollars.',

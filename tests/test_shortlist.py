@@ -101,6 +101,14 @@ class TestCategories:
         assert categorise({**QUALIFIER, "profitable": False,
                            "revenue_cagr_3y": 1.5}) == "speculative"
 
+    def test_profitable_but_unvaluable_is_not_called_speculative(self):
+        """Apollo and First Bancorp are large, profitable and long
+        established. What is missing is a valuation worth standing behind,
+        not the earnings, and a reader without a finance background should
+        not be told those are the same thing."""
+        assert categorise({**QUALIFIER, "fair_value": float("nan")}) == "hard_to_value"
+        assert categorise({**QUALIFIER, "coverage": 4}) == "hard_to_value"
+
     def test_a_company_we_cannot_size_is_its_own_label(self):
         """Berkshire's share count could not be established; calling it
         speculative would be wrong, and calling it anything else dishonest."""
