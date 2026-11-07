@@ -216,3 +216,38 @@ class TestPointInTime:
         facts = {"cik": "1", "facts": {"us-gaap": {"Revenues": {"units": {"USD": [
             fact("2025-01-01", "2025-03-31", 100.0, "2025-04-30")]}}}}}
         assert as_of_filter(facts, "2020-01-01")["facts"] == {}
+
+
+class TestFrameIndex:
+    """The frames API is the cheap path for whole-market screens.
+
+    Its index is a zero-padded CIK, which a CSV cache round-trip silently
+    turns into an integer -- "0000320193" comes back as 320193, every lookup
+    against the ticker map misses, and a screen over 5,000 filers matches a few
+    hundred with no error anywhere.
+    """
+
+    def test_integer_index_is_repadded(self):
+        from stocklab.data.providers.sec import _normalise_cik_index
+        frame = pd.DataFrame({"val": [1.0, 2.0]}, index=[320193, 2098])
+        out = _normalise_cik_index(frame)
+        assert list(out.index) == ["0000320193", "0000002098"]
+        assert out.index.name == "cik"
+
+    def test_already_padded_index_is_unchanged(self):
+        from stocklab.data.providers.sec import _normalise_cik_index
+        frame = pd.DataFrame({"val": [1.0]}, index=["0000320193"])
+        assert list(_normalise_cik_index(frame).index) == ["0000320193"]
+
+    def test_empty_frame_survives(self):
+        from stocklab.data.providers.sec import _normalise_cik_index
+        assert _normalise_cik_index(pd.DataFrame()).empty
+        assert _normalise_cik_index(None).empty
+
+    def test_round_trip_through_the_cache_keeps_the_padding(self, tmp_path):
+        from stocklab.data.cache import Cache
+        from stocklab.data.providers.sec import _normalise_cik_index
+        store = Cache(tmp_path / "c.sqlite")
+        frame = pd.DataFrame({"val": [1.0]}, index=pd.Index(["0000320193"], name="cik"))
+        store.set_df("frame", frame)
+        assert list(_normalise_cik_index(store.get_df("frame")).index) == ["0000320193"]

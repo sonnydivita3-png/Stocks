@@ -11,10 +11,14 @@ venv/
 .ruff_cache/
 .mypy_cache/
 .DS_Store
-# Local data: caches, portfolio databases, generated reports
-data/
+# Local data: caches, portfolio databases, generated reports.
+# These are anchored with a leading slash on purpose. A bare `data/` matches a
+# directory of that name at ANY depth, which silently excluded the whole
+# stocklab/data package -- the SEC, Yahoo and FRED providers -- from every
+# commit, leaving the pushed repository unimportable.
+/data/
 *.sqlite
 *.sqlite3
 *.db
-reports/
-out/
+/reports/
+/out/
