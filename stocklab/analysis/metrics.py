@@ -370,12 +370,20 @@ def beneish_m_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
 # --------------------------------------------------------------------------- #
 # the main entry point
 # --------------------------------------------------------------------------- #
-def compute_metrics(f: Fundamentals, price: float | None = None) -> dict[str, float]:
+def compute_metrics(f: Fundamentals, price: float | None = None,
+                   dividend_ttm: float | None = None) -> dict[str, float]:
     """Flatten a company's fundamentals (+ price) into a metric dictionary.
 
     Valuation multiples are only populated when ``price`` is supplied.  Keys
     absent from the result were not computable -- callers should use
     ``dict.get`` and treat ``None``/``nan`` as "unknown", never as zero.
+
+    ``dividend_ttm`` is trailing twelve-month cash dividends *per share* from
+    the exchange record (see :func:`stocklab.data.providers.yahoo.fetch_dividends`).
+    Pass it whenever available: XBRL dividend tagging is unreliable, with
+    filers using company-specific extensions the standard taxonomy never sees.
+    Simon Property Group, for instance, has tagged no standard dividend concept
+    since 2019, which makes its yield look like zero.
     """
     m: dict[str, float] = {}
     cfg = settings()
@@ -552,12 +560,61 @@ def compute_metrics(f: Fundamentals, price: float | None = None) -> dict[str, fl
     m["beneish_m"] = mscore
 
     # ---- shareholder returns ---------------------------------------------
-    m["dividend_yield"] = safe_div(f.get("dividends_paid"), market_cap)
+    # Prefer the exchange's own dividend record over the filing's cash-flow
+    # line: it is per-share, current, and immune to tagging gaps.
+    if is_num(dividend_ttm) and is_num(price) and float(price) > 0:
+        m["dividend_per_share"] = float(dividend_ttm)
+        m["dividend_yield"] = float(dividend_ttm) / float(price)
+        m["dividend_source"] = "exchange record"   # type: ignore[assignment]
+        dividends_total = (float(dividend_ttm) * shares_out
+                           if is_num(shares_out) else NAN)
+    else:
+        dividends_total = f.get("dividends_paid")
+        m["dividend_yield"] = safe_div(dividends_total, market_cap)
+        m["dividend_per_share"] = safe_div(dividends_total, shares_out)
+        m["dividend_source"] = "XBRL cash flow"    # type: ignore[assignment]
+    m["dividends_paid"] = dividends_total
     m["buyback_yield"] = safe_div(f.get("buybacks"), market_cap)
     m["shareholder_yield"] = sum_finite(m["dividend_yield"], m["buyback_yield"],
                                         require_any=False)
-    m["payout_ratio"] = safe_div(f.get("dividends_paid"), ni)
-    m["fcf_payout_ratio"] = safe_div(f.get("dividends_paid"), fcf)
+    m["payout_ratio"] = safe_div(dividends_total, ni)
+    m["fcf_payout_ratio"] = safe_div(dividends_total, fcf)
+
+    # ---- REIT measures ---------------------------------------------------
+    # Net income is close to meaningless for a REIT: property depreciation is a
+    # large non-cash charge against assets that typically appreciate, so GAAP
+    # earnings understate distributable cash by a wide margin and payout ratios
+    # computed from them routinely exceed 100% for perfectly healthy trusts.
+    # NAREIT-defined FFO adds depreciation back. (Gains on property sales
+    # should also be removed; those are not separately tagged often enough to
+    # rely on, so this is FFO before that adjustment.)
+    da = f.get("depreciation_amortization")
+    ffo = (ni + da) if (is_num(ni) and is_num(da)) else NAN
+    m["ffo"] = ffo
+    m["ffo_per_share"] = safe_div(ffo, shares)
+    m["p_ffo"] = safe_div(market_cap, ffo) if (is_num(ffo) and ffo > 0) else NAN
+    m["ffo_payout_ratio"] = safe_div(
+        float(dividend_ttm) * shares_out
+        if (is_num(dividend_ttm) and is_num(shares_out)) else f.get("dividends_paid"),
+        ffo,
+    )
+    m["ffo_yield"] = safe_div(ffo, market_cap)
+
+    # ---- Graham liquidation metrics (used by the net-net screen) ---------
+    ncav = (
+        f.get("current_assets") - f.get("total_liabilities")
+        - zero_if_nan(f.get("preferred_equity"))
+        if (is_num(f.get("current_assets")) and is_num(f.get("total_liabilities")))
+        else NAN
+    )
+    m["ncav"] = ncav
+    m["ncav_per_share"] = safe_div(ncav, shares)
+    if is_num(m["ncav_per_share"]) and is_num(price) and float(price) > 0:
+        # Positive means the price sits below Graham's two-thirds-of-NCAV
+        # threshold; the magnitude is how far below, as a fraction of price.
+        m["ncav_discount"] = (m["ncav_per_share"] * (2.0 / 3.0) - float(price)) / float(price)
+    m["net_net_price"] = (m["ncav_per_share"] * (2.0 / 3.0)
+                          if is_num(m["ncav_per_share"]) else NAN)
 
     # ---- valuation multiples ---------------------------------------------
     ev = m["enterprise_value"]
