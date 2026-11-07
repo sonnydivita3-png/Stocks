@@ -72,7 +72,7 @@
 
   /* look-up panel */
   .vd-search { display: flex; gap: var(--cds-pad-sm); flex-wrap: wrap;
-    margin-bottom: var(--cds-pad-md); }
+    margin-bottom: var(--cds-pad-sm); }
   .vd-search input { flex: 1 1 15rem; min-width: 0; padding: 9px 12px;
     font: inherit; font-size: var(--cds-font-size-body);
     background: var(--color-bg); color: var(--color-fg);
@@ -82,6 +82,28 @@
     background: var(--color-fg); color: var(--color-bg);
     border: 1px solid var(--color-fg); border-radius: var(--cds-radius); }
   .vd-search button:hover { opacity: .88; }
+  /* Own suggestion list rather than <datalist>: the native popup on a phone
+     renders over the keyboard, which makes the box impossible to type into. */
+  .vd-sugg { list-style: none; margin: 0 0 var(--cds-pad-md); padding: 0;
+    border: 1px solid var(--color-border-line); border-radius: var(--cds-radius);
+    max-height: min(40vh, 18rem); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .vd-sugg[hidden] { display: none; }
+  .vd-sugg li + li { border-top: 1px solid var(--color-border-line); }
+  .vd-sugg button { display: flex; align-items: baseline; gap: var(--cds-pad-sm);
+    width: 100%; text-align: left; padding: 11px 12px; font: inherit;
+    font-size: var(--cds-font-size-body); cursor: pointer; background: transparent;
+    color: var(--color-fg); border: 0; }
+  .vd-sugg button:hover, .vd-sugg button:focus-visible {
+    background: var(--color-panel); }
+  .vd-sugg .vd-sugg-sym { font-weight: var(--cds-font-weight-medium);
+    flex: 0 0 auto; min-width: 4.25rem; }
+  .vd-sugg .vd-sugg-name { color: var(--color-fg-muted);
+    font-size: var(--cds-font-size-caption); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .vd-sugg .vd-sugg-grade { margin-left: auto; flex: 0 0 auto;
+    font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-sugg-more { padding: 9px 12px; margin: 0;
+    font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .vd-miss { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: 0; }
   .vd-detail { display: grid; gap: var(--cds-gap-md); }
@@ -219,16 +241,20 @@
 
   <section class="vd-section">
     <h2>Look up a company</h2>
-    <p class="vd-note">Type a ticker symbol or a company name and press Analyse. You will
-      get the same four scores and the same grade used everywhere else on this page.</p>
+    <p class="vd-note">Type a ticker symbol or a company name, then tap a suggestion or
+      press Analyse. You will get the same four scores and the same grade used everywhere
+      else on this page.</p>
     <div class="vd-card">
       <div class="vd-search">
-        <input type="search" id="vd-query" list="vd-tickers" autocomplete="off"
-               spellcheck="false" aria-label="Ticker symbol or company name"
+        <input type="search" id="vd-query" autocomplete="off" spellcheck="false"
+               enterkeyhint="search" role="combobox" aria-expanded="false"
+               aria-controls="vd-sugg" aria-autocomplete="list"
+               aria-label="Ticker symbol or company name"
                placeholder="For example NVDA, or Nvidia">
-        <datalist id="vd-tickers" data-draw="ticker-options" data-source="companies"></datalist>
         <button type="button" id="vd-go">Analyse</button>
       </div>
+      <ul id="vd-sugg" class="vd-sugg" data-draw="ticker-options" data-source="companies"
+          role="listbox" aria-label="Matching companies" hidden></ul>
       <div data-draw="lookup" data-source="companies"></div>
     </div>
   </section>
@@ -589,16 +615,32 @@
 
   // ---- look up one company -------------------------------------------
   let lookupQuery = '';
+  let suggestQuery = '';
+  const SUGGEST_MAX = 6;
 
-  const findCompany = (query) => {
+  // Rank matches so a ticker prefix beats a name buried mid-string. Typing "FL"
+  // should offer FLOC and FLR, not Netflix and Snowflake.
+  const rankMatches = (query) => {
     const q = String(query || '').trim().toUpperCase();
-    if (!q) return null;
-    const rows = rowsOf('companies');
-    return rows.find((r) => String(r.symbol).toUpperCase() === q)
-      || rows.find((r) => String(r.name).toUpperCase().startsWith(q))
-      || rows.find((r) => String(r.name).toUpperCase().includes(q))
-      || null;
+    if (!q) return [];
+    const scored = [];
+    rowsOf('companies').forEach((r) => {
+      const sym = String(r.symbol || '').toUpperCase();
+      const name = String(r.name || '').toUpperCase();
+      let tier = -1;
+      if (sym === q) tier = 0;
+      else if (sym.startsWith(q)) tier = 1;
+      else if (name.split(/[^A-Z0-9]+/).some((w) => w && w.startsWith(q))) tier = 2;
+      else if (sym.includes(q)) tier = 3;
+      else if (name.includes(q)) tier = 4;
+      if (tier >= 0) scored.push({tier, row: r, score: num(r.overall) ?? -1});
+    });
+    scored.sort((a, b) => a.tier - b.tier || b.score - a.score
+      || String(a.row.symbol).localeCompare(String(b.row.symbol)));
+    return scored.map((x) => x.row);
   };
+
+  const findCompany = (query) => rankMatches(query)[0] || null;
 
   const kv = (pairs) => {
     const dl = document.createElement('dl'); dl.className = 'vd-kv';
@@ -610,13 +652,70 @@
     return dl;
   };
 
+  const closeSuggest = () => {
+    suggestQuery = '';
+    dash.draw('ticker-options');
+  };
+
   dash.draw('ticker-options', (el) => {
     el.replaceChildren();
-    rowsOf('companies').forEach((r) => {
-      const opt = document.createElement('option');
-      opt.value = r.symbol; opt.label = r.name;
-      el.appendChild(opt);
+    const input = document.getElementById('vd-query');
+    const matches = rankMatches(suggestQuery);
+    // One exact hit that is already fully typed needs no list.
+    const settled = matches.length === 1
+      || (matches[0] && String(matches[0].symbol).toUpperCase()
+          === String(suggestQuery).trim().toUpperCase());
+    const show = matches.length > 0 && !settled;
+    el.hidden = !show;
+    if (input) input.setAttribute('aria-expanded', show ? 'true' : 'false');
+    if (!show) return;
+
+    matches.slice(0, SUGGEST_MAX).forEach((r) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      const b = document.createElement('button');
+      b.type = 'button';
+      const sym = document.createElement('span');
+      sym.className = 'vd-sugg-sym'; sym.textContent = r.symbol;
+      const nm = document.createElement('span');
+      nm.className = 'vd-sugg-name'; nm.textContent = r.name;
+      const gr = document.createElement('span');
+      gr.className = 'vd-sugg-grade';
+      const ov = num(r.overall);
+      gr.textContent = r.grade ? (r.grade + (ov == null ? '' : '  ' + fmtI(ov))) : '';
+      b.append(sym, nm, gr);
+      b.addEventListener('click', () => {
+        if (input) input.value = r.symbol;
+        lookupQuery = r.symbol;
+        closeSuggest();
+        dash.draw('lookup');
+      });
+      b.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+          ev.preventDefault(); closeSuggest(); if (input) input.focus();
+        } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+          ev.preventDefault();
+          const all = Array.from(el.querySelectorAll('button'));
+          const i = all.indexOf(b) + (ev.key === 'ArrowDown' ? 1 : -1);
+          if (i < 0) { if (input) input.focus(); } else if (all[i]) all[i].focus();
+        }
+      });
+      li.appendChild(b);
+      el.appendChild(li);
     });
+
+    if (matches.length > SUGGEST_MAX) {
+      const li = document.createElement('li');
+      const p = document.createElement('p');
+      p.className = 'vd-sugg-more';
+      p.textContent = (matches.length - SUGGEST_MAX) + ' more match. Keep typing to narrow it.';
+      if (matches.length - SUGGEST_MAX > 1) {
+        p.textContent = (matches.length - SUGGEST_MAX)
+          + ' more matches. Keep typing to narrow it.';
+      }
+      li.appendChild(p);
+      el.appendChild(li);
+    }
   });
 
   dash.draw('lookup', (el) => {
@@ -710,15 +809,31 @@
   const runLookup = () => {
     const input = document.getElementById('vd-query');
     lookupQuery = input ? input.value : '';
+    closeSuggest();
     dash.draw('lookup');
   };
   document.querySelectorAll('#vd-go').forEach((b) => b.addEventListener('click', runLookup));
   document.querySelectorAll('#vd-query').forEach((i) => {
     // No <form> here: the dashboard strips form elements, so Enter is wired by hand.
-    i.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') { ev.preventDefault(); runLookup(); }
+    i.addEventListener('input', () => {
+      suggestQuery = i.value;
+      dash.draw('ticker-options');
     });
-    i.addEventListener('change', runLookup);
+    i.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); runLookup(); return; }
+      if (ev.key === 'Escape') { closeSuggest(); return; }
+      if (ev.key === 'ArrowDown') {
+        const first = document.querySelector('#vd-sugg button');
+        if (first) { ev.preventDefault(); first.focus(); }
+      }
+    });
+  });
+  // Tapping anywhere outside the box puts the list away.
+  document.addEventListener('click', (ev) => {
+    const box = document.querySelector('#vd-sugg');
+    if (!box || box.hidden) return;
+    if (ev.target.closest('#vd-sugg') || ev.target.closest('#vd-query')) return;
+    closeSuggest();
   });
 
   let sortKey = 'overall', sortDir = -1;
