@@ -537,6 +537,131 @@ def screen(preset: str | None, symbols: str, universe: str, limit: int,
 
 
 @main.command()
+@click.option("--symbols", required=True,
+              help="Comma-separated universe to trade.")
+@click.option("--strategy", type=click.Choice(["momentum", "hold"]),
+              default="momentum", show_default=True)
+@click.option("--top-n", default=3, show_default=True)
+@click.option("--lookback", default=252, show_default=True,
+              help="Momentum lookback in trading days.")
+@click.option("--frequency", type=click.Choice(["D", "W", "M", "Q"]),
+              default="M", show_default=True)
+@click.option("--period", default="10y", show_default=True)
+@click.option("--benchmark", default="SPY", show_default=True)
+@click.option("--capital", default=100_000.0, show_default=True)
+@click.option("--slippage-bps", default=5.0, show_default=True)
+@click.option("--walk-forward", "do_walk_forward", is_flag=True,
+              help="Choose parameters in-sample and score the next window only.")
+def backtest(symbols: str, strategy: str, top_n: int, lookback: int,
+             frequency: str, period: str, benchmark: str, capital: float,
+             slippage_bps: float, do_walk_forward: bool) -> None:
+    """Backtest a rule over a universe, with costs and bias warnings."""
+    from .backtest import engine, metrics
+    from .backtest.walkforward import momentum_builder, walk_forward
+    from .data.providers import fred
+    from .data.providers.yahoo import fetch_closes, fetch_history
+
+    universe = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    if len(universe) < 2:
+        ui.console.print("[red]Need at least two symbols.[/red]")
+        raise SystemExit(1)
+
+    with ui.console.status(f"Loading {len(universe)} price series..."):
+        prices = fetch_closes(universe, period=period, field="adj_close")
+        prices = prices.dropna(how="all")
+        bench = fetch_history(benchmark, period=period)
+    if prices.empty or len(prices) < 300:
+        ui.console.print("[red]Not enough price history to backtest.[/red]")
+        raise SystemExit(1)
+    risk_free = fred.risk_free_rate()
+
+    if do_walk_forward:
+        builder, grid = momentum_builder(frequency=frequency)
+        with ui.console.status("Walking forward..."):
+            result = walk_forward(prices, builder, grid, risk_free=risk_free,
+                                  initial_capital=capital)
+        if not result.folds:
+            ui.console.print("[red]" + "; ".join(result.notes) + "[/red]")
+            raise SystemExit(1)
+        ui.console.print(ui.header(
+            "Walk-forward momentum",
+            f"{len(result.folds)} fold(s) | parameters chosen in-sample, "
+            "scored out-of-sample only"))
+        ui.console.print(ui.frame_table(
+            result.fold_table(), title="Folds",
+            formatters={"in_sample_cagr": lambda v: ui.pct(v, signed=True),
+                        "oos_cagr": lambda v: ui.pct(v, signed=True),
+                        "oos_sharpe": lambda v: ui.num(v, 2),
+                        "oos_max_drawdown": lambda v: ui.pct(v, signed=True)},
+            index_label="fold"))
+        ui.console.print(ui.kv_table([
+            ("Out-of-sample CAGR", ui.pct(result.oos_summary.get("cagr"), signed=True)),
+            ("Out-of-sample Sharpe", ui.num(result.oos_summary.get("sharpe"), 2)),
+            ("Max drawdown", ui.pct(result.oos_summary.get("max_drawdown"), signed=True)),
+            ("In-sample minus out-of-sample", ui.signed_text(result.degradation)),
+        ], title="Out-of-sample result", width=32))
+        ui.print_notes(result.notes, "Notes")
+        return
+
+    if strategy == "hold":
+        weights = engine.buy_and_hold_weights(prices)
+        label = "equal-weight buy and hold"
+    else:
+        scores = prices.shift(21) / prices.shift(lookback) - 1.0
+        weights = engine.weights_from_ranks(scores, top_n=top_n, frequency=frequency)
+        label = f"momentum top {top_n}, {lookback}d lookback, {frequency} rebalance"
+
+    result = engine.run(prices, weights, initial_capital=capital,
+                        slippage_bps=slippage_bps,
+                        benchmark=bench["adj_close"] if not bench.empty else None,
+                        risk_free=risk_free, label=label)
+    hold = engine.run(prices, engine.buy_and_hold_weights(prices),
+                      initial_capital=capital, slippage_bps=slippage_bps,
+                      risk_free=risk_free)
+
+    ui.console.print(ui.header(f"Backtest: {label}",
+                               f"{len(universe)} symbols | "
+                               f"{prices.index.min().date()} to {prices.index.max().date()}"))
+    comparison = {"strategy": result, "equal-weight hold": hold}
+    if result.benchmark_summary:
+        comparison[benchmark] = type("B", (), {"summary": result.benchmark_summary})()
+    frame = metrics.compare(comparison)
+    ui.console.print(ui.frame_table(
+        frame, title="Comparison (sorted by return per unit of drawdown)",
+        formatters={c: (lambda v: ui.pct(v, signed=True))
+                    for c in ("cagr", "volatility", "max_drawdown",
+                              "time_underwater", "gross_cagr") if c in frame}
+        | {c: (lambda v: ui.num(v, 2)) for c in
+           ("sharpe", "sortino", "calmar", "ulcer", "annual_turnover") if c in frame},
+        index_label="strategy"))
+
+    annual = metrics.annual_table(
+        result.returns,
+        bench["adj_close"].pct_change() if not bench.empty else None)
+    if not annual.empty:
+        ui.console.print(ui.frame_table(
+            annual, title="Calendar years",
+            formatters={c: (lambda v: ui.pct(v, signed=True)) for c in annual.columns},
+            index_label="year"))
+
+    sharpe = result.summary.get("sharpe")
+    observations = len(result.returns)
+    ui.console.print(ui.kv_table([
+        ("Sharpe as reported", ui.num(sharpe, 2)),
+        ("Deflated for 10 trials",
+         ui.num(metrics.deflated_sharpe(sharpe, 10, observations), 2)),
+        ("Deflated for 50 trials",
+         ui.num(metrics.deflated_sharpe(sharpe, 50, observations), 2)),
+    ], title="Selection bias", width=32))
+    ui.print_notes(
+        result.warnings
+        + ["Deflated Sharpe subtracts the expected maximum from N trials. If "
+           "you tried several variants and kept this one, the deflated figure "
+           "is the honest one."],
+        "Why to distrust this")
+
+
+@main.command()
 @click.option("--purge", is_flag=True, help="Delete every cached entry.")
 @click.option("--older-than-days", type=float, default=None,
               help="Delete entries older than this many days.")
@@ -928,8 +1053,12 @@ def performance(account: str | None, benchmark: str, risk_free: float | None) ->
         ], title="Risk", width=32))
 
     prices = _prices_for(sorted({p.symbol for p in state.positions()}))
-    contribution = contribution_by_position(state, prices)
+    contribution = contribution_by_position(state, prices, transactions)
     if not contribution.empty:
+        # Drop the dividend column when no dividends were ever recorded; an
+        # all-zero column reads as "this paid nothing", not "nothing logged".
+        if contribution["dividends"].abs().sum() == 0:
+            contribution = contribution.drop(columns=["dividends"])
         ui.console.print(ui.frame_table(
             contribution.head(15), title="Contribution to gain",
             formatters={c: ui.money for c in
@@ -1004,13 +1133,26 @@ def rebalance(model: str, targets: tuple[str, ...], band: float, abs_band: float
     if trades.empty:
         ui.console.print("[green]No trades required.[/green]")
     else:
+        # Reasons and warnings are sentences; as table columns they fold to a
+        # few characters per line. They are listed underneath instead.
+        compact = trades[["account", "side", "quantity", "price", "value",
+                          "est_gain", "est_tax", "term"]].copy()
+        compact.index = trades["symbol"]
+        compact = compact.rename(columns={"quantity": "qty", "est_gain": "gain",
+                                          "est_tax": "tax"})
         ui.console.print(ui.frame_table(
-            trades.set_index("symbol"), title="Trades",
+            compact, title="Trades",
             formatters={"price": lambda v: ui.money(v, abbreviate=False),
-                        "value": ui.money, "est_gain": ui.money,
-                        "est_tax": lambda v: ui.money(v, abbreviate=False),
-                        "quantity": lambda v: ui.num(v, 2)},
+                        "value": ui.money, "gain": ui.money,
+                        "tax": lambda v: ui.money(v, abbreviate=False),
+                        "qty": lambda v: ui.num(v, 2)},
             index_label="symbol"))
+        reasons = [f"{t.symbol} {t.side} in {t.account_name}: {t.reason}"
+                   for t in result.trades]
+        ui.print_notes(reasons, "Why each trade", "cyan")
+        warnings_out = [f"{t.symbol}: {w}" for t in result.trades for w in t.warnings]
+        if warnings_out:
+            ui.print_notes(warnings_out, "Trade warnings", "red")
     ui.print_notes(result.notes, "Notes")
 
 
@@ -1044,13 +1186,31 @@ def tax_cmd(year: int | None, short_rate: float, long_rate: float, niit: bool) -
         ("Estimated federal tax", ui.money(report.estimated_tax, abbreviate=False)),
     ], title="Summary", width=30))
     if not report.realized_detail.empty:
+        detail = report.realized_detail.copy()
+        # The per-row notes are paragraphs; rendering them as a table column
+        # folds them to one character per line. They go below instead.
+        row_notes = [
+            f"{row['symbol']} sold {row['sell_date']}: {row['notes']}"
+            for _, row in detail.iterrows() if str(row.get("notes") or "").strip()
+        ]
+        compact = detail[["account", "open_date", "sell_date", "quantity",
+                          "proceeds", "cost_basis", "gain", "term",
+                          "wash_sale_disallowed", "taxable_gain"]].copy()
+        compact.index = detail["symbol"]
+        compact = compact.rename(columns={
+            "open_date": "opened", "sell_date": "sold", "quantity": "qty",
+            "cost_basis": "basis", "wash_sale_disallowed": "disallowed",
+            "taxable_gain": "taxable",
+        })
         ui.console.print(ui.frame_table(
-            report.realized_detail.set_index("symbol"), title="Realised disposals",
-            formatters={"proceeds": ui.money, "cost_basis": ui.money,
-                        "gain": ui.money, "taxable_gain": ui.money,
-                        "wash_sale_disallowed": ui.money,
-                        "quantity": lambda v: ui.num(v, 2)},
+            compact, title="Realised disposals",
+            formatters={"proceeds": ui.money, "basis": ui.money,
+                        "gain": ui.money, "taxable": ui.money,
+                        "disallowed": ui.money,
+                        "qty": lambda v: ui.num(v, 2)},
             index_label="symbol", max_rows=25))
+        if row_notes:
+            ui.print_notes(row_notes, "Wash sales and adjustments")
     prices = _prices_for(sorted({p.symbol for p in state.positions()}))
     unrealized = unrealized_frame(state, accounts, prices)
     if not unrealized.empty:
@@ -1088,17 +1248,17 @@ def harvest(min_loss: float, short_rate: float, long_rate: float) -> None:
             "they are never candidates.[/dim]")
         return
     frame = pd.DataFrame([{
-        "symbol": c.symbol, "account": c.account_name, "quantity": c.quantity,
-        "cost basis": c.cost_basis, "value": c.market_value, "loss": c.loss,
+        "symbol": c.symbol, "account": c.account_name, "qty": c.quantity,
+        "basis": c.cost_basis, "value": c.market_value, "loss": c.loss,
         "term": c.term, "est saving": c.estimated_tax_saving,
         "wash risk": "YES" if c.wash_sale_risk else "no",
         "clear after": c.blocked_until or "-",
     } for c in candidates]).set_index("symbol")
     ui.console.print(ui.frame_table(
         frame, title="Harvest candidates",
-        formatters={"cost basis": ui.money, "value": ui.money, "loss": ui.money,
+        formatters={"basis": ui.money, "value": ui.money, "loss": ui.money,
                     "est saving": lambda v: ui.money(v, abbreviate=False),
-                    "quantity": lambda v: ui.num(v, 2)},
+                    "qty": lambda v: ui.num(v, 2)},
         index_label="symbol"))
     total = sum(c.estimated_tax_saving for c in candidates if not c.wash_sale_risk)
     ui.console.print(f"\nEstimated tax saving from unblocked candidates: "

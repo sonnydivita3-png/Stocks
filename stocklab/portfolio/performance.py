@@ -239,7 +239,8 @@ def analyse(state: LedgerState, transactions: list[Transaction],
     )
 
 
-def contribution_by_position(state: LedgerState, prices: dict[str, float]
+def contribution_by_position(state: LedgerState, prices: dict[str, float],
+                             transactions: list[Transaction] | None = None
                              ) -> pd.DataFrame:
     """Realised plus unrealised profit per symbol, and share of the total.
 
@@ -249,6 +250,17 @@ def contribution_by_position(state: LedgerState, prices: dict[str, float]
     their lifetime; index returns come from a small minority).
     """
     rows: dict[str, dict] = {}
+    # Dividends are only attributable to a symbol when they were recorded
+    # against one, so they come from the transaction log rather than the
+    # per-account income totals the ledger keeps.
+    for txn in (transactions or []):
+        if txn.type in (TxnType.DIVIDEND, TxnType.DIVIDEND_REINVEST) and txn.symbol:
+            row = rows.setdefault(txn.symbol, {"realized": 0.0, "unrealized": 0.0,
+                                               "dividends": 0.0, "cost_basis": 0.0})
+            amount = (abs(txn.amount) if txn.amount
+                      else abs(txn.quantity * txn.price))
+            row["dividends"] += amount
+
     for gain in state.realized:
         row = rows.setdefault(gain.symbol, {"realized": 0.0, "unrealized": 0.0,
                                             "dividends": 0.0, "cost_basis": 0.0})
@@ -264,7 +276,9 @@ def contribution_by_position(state: LedgerState, prices: dict[str, float]
     if not rows:
         return pd.DataFrame()
     frame = pd.DataFrame(rows).T
-    frame["total_gain"] = frame["realized"].fillna(0.0) + frame["unrealized"].fillna(0.0)
+    frame["total_gain"] = (frame["realized"].fillna(0.0)
+                           + frame["unrealized"].fillna(0.0)
+                           + frame["dividends"].fillna(0.0))
     total = frame["total_gain"].sum()
     frame["share_of_gain"] = frame["total_gain"] / total if total else NAN
     frame["return_on_cost"] = frame["total_gain"] / frame["cost_basis"].replace(0.0, np.nan)

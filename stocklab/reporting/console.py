@@ -159,7 +159,8 @@ def score_bar(score: float, width: int = 20) -> Text:
     return bar
 
 
-def print_notes(notes: Iterable[str], title: str = "Caveats") -> None:
-    panel = notes_panel(notes, title)
+def print_notes(notes: Iterable[str], title: str = "Caveats",
+                style: str = "yellow") -> None:
+    panel = notes_panel(notes, title, style)
     if panel is not None:
         console.print(panel)
