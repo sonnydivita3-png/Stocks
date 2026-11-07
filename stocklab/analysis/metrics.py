@@ -832,6 +832,24 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         growth, r2 = log_trend_growth(fcf_hist.iloc[-7:])
         m["fcf_trend_growth"], m["fcf_trend_r2"] = growth, r2
         m["fcf_positive_years"] = float((fcf_hist.iloc[-7:] > 0).sum())
+
+    # How dependable the earnings are, as distinct from how large. A company
+    # anchored on one good year is valued on it by every model downstream.
+    # Compugen lost money in four of its last five years; a single licensing
+    # payment turned a negative five-year average into a profit, which read
+    # as a 591% return on capital and put it on a buy list.
+    op_hist = f.annual["operating_income"].dropna() \
+        if "operating_income" in f.annual.columns else pd.Series(dtype=float)
+    if len(op_hist) >= 3:
+        window = op_hist.iloc[-5:]
+        m["profitable_years"] = float((window > 0).sum())
+        m["profitable_years_of"] = float(len(window))
+        average = float(window.mean())
+        latest = float(window.iloc[-1])
+        # Above 1 means the latest year beat its own recent average; a large
+        # number means the valuation is anchored on a peak or a windfall.
+        m["earnings_vs_own_average"] = (latest / average) if average > 0 else NAN
+        m["normalised_operating_income"] = average
         m["fcf_years_available"] = float(len(fcf_hist))
 
     # Share-count trend: the dilution that quietly eats per-share growth.

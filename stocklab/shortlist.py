@@ -90,6 +90,14 @@ GATES: tuple[Gate, ...] = (
     Gate("profitable", "It makes a profit",
          "A business with no earnings cannot be valued on its earnings, and "
          "its price rests on a future that has not happened."),
+    Gate("profits_repeat", "It has made a profit most years, not just lately",
+         "Profitable in fewer than four of the last five years. Every model "
+         "here is anchored on recent earnings, so one good year after several "
+         "bad ones is read as the normal state of the business."),
+    Gate("not_a_windfall", "This year is not far above its own record",
+         "The latest year's operating profit is more than double its own "
+         "five-year average, so the valuation rests on a peak or a one-off "
+         "rather than on what the business ordinarily earns."),
     Gate("covered", "Its filings cover most of what we measure",
          "Scored on fewer than fourteen of the inputs, which is not enough to "
          "judge a company you intend to hold for years."),
@@ -112,6 +120,8 @@ GATES: tuple[Gate, ...] = (
          "likely a bad estimate than a bargain."),
 )
 
+MIN_PROFITABLE_YEARS = 4      # of the last five
+MAX_ABOVE_OWN_AVERAGE = 2.0   # latest year against its own five-year average
 MIN_COVERAGE = 14
 MIN_QUALITY = 60
 MIN_SAFETY = 55
@@ -127,6 +137,11 @@ def gate_results(m: dict) -> dict[str, bool]:
     return {
         "share_count": bool(m.get("share_count_reliable")),
         "profitable": bool(m.get("profitable")),
+        "profits_repeat": (m.get("profitable_years") or 0)
+            >= min(MIN_PROFITABLE_YEARS, m.get("profitable_years_of") or 0)
+            and (m.get("profitable_years_of") or 0) >= 3,
+        "not_a_windfall": not is_num(m.get("earnings_vs_own_average"))
+            or m["earnings_vs_own_average"] <= MAX_ABOVE_OWN_AVERAGE,
         "covered": (m.get("coverage") or 0) >= MIN_COVERAGE,
         "quality": is_num(m.get("quality")) and m["quality"] >= MIN_QUALITY,
         "safety": is_num(m.get("safety")) and m["safety"] >= MIN_SAFETY,

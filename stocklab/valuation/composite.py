@@ -106,6 +106,23 @@ BASE_WEIGHTS = {
     "Graham number": 0.04,
 }
 
+# Three of the six models are anchored on book value or on the assumption of
+# no growth. For an asset-light business earning far more than its cost of
+# capital, they are not conservative -- they are measuring the wrong thing,
+# and averaging them in at a fixed weight marks the company down by
+# construction. Walmart came out at $32.70 against a $125.52 share (earnings
+# power $9, book-anchored residual income $21) and Costco at $346 against
+# $1,053. The effect was systematic: every recognisable compounder failed the
+# "below fair value" test, so the lists filled with asset-heavy cyclicals and
+# obscure small caps instead.
+#
+# Greenwald's own framing settles it. Earnings power value is the value of a
+# business with no franchise. Where returns on capital persistently exceed the
+# cost of capital there IS a franchise, and EPV is a floor, not an estimate.
+BOOK_ANCHORED = ("Earnings Power Value", "Residual income", "Graham number")
+FRANCHISE_ROIC_MULTIPLE = 1.5     # returns this far above the cost of capital
+FRANCHISE_WEIGHT_FLOOR = 0.25     # is what the book-anchored models keep
+
 
 def value(
     f: Fundamentals,
@@ -218,6 +235,37 @@ def value(
         if graham_applicable else "requires positive EPS and book value",
     ))
 
+    # ---- franchise correction --------------------------------------------
+    # Where a business persistently earns well above its cost of capital, the
+    # book-anchored models are a floor rather than a valuation, and their full
+    # weight drags the blend to a figure nobody would defend. Their weight is
+    # cut and what is freed goes to the models that can see a franchise.
+    roic_now = metrics.get("roic_5y_avg")
+    if not is_num(roic_now):
+        roic_now = metrics.get("roic")
+    hurdle = coc.wacc if is_num(coc.wacc) and coc.wacc > 0 else NAN
+    franchise = (is_num(roic_now) and is_num(hurdle)
+                 and roic_now > hurdle * FRANCHISE_ROIC_MULTIPLE)
+    if franchise:
+        freed = 0.0
+        for est in estimates:
+            if est.name in BOOK_ANCHORED and est.applicable:
+                freed += est.weight * (1.0 - FRANCHISE_WEIGHT_FLOOR)
+                est.weight *= FRANCHISE_WEIGHT_FLOOR
+        takers = [e for e in estimates
+                  if e.applicable and e.name not in BOOK_ANCHORED
+                  and is_num(e.value_per_share) and e.value_per_share > 0]
+        if takers and freed > 0:
+            share = sum(e.weight for e in takers)
+            for est in takers:
+                est.weight += freed * (est.weight / share if share else 1 / len(takers))
+            notes.append(
+                f"Returns on capital of {roic_now:.0%} run well above the "
+                f"{hurdle:.1%} cost of capital, so this business has a franchise. "
+                "The book-value and no-growth models are treated as a floor and "
+                "carry a quarter of their usual weight."
+            )
+
     # ---- blend ------------------------------------------------------------
     usable = [e for e in estimates if e.applicable and is_num(e.value_per_share)
               and e.value_per_share > 0]
@@ -304,6 +352,23 @@ def value(
         confidence = "moderate"
     else:
         confidence = "reasonable"
+
+    # Where the models disagree six- or eight-fold there is no estimate, only
+    # an average of incompatible guesses, and publishing it invites exactly
+    # the reliance it cannot bear: Walmart at $43 against a $126 share,
+    # Mastercard at $204 against $653. The confidence field already knew; it
+    # simply was not acted on. Withholding here means a company we cannot
+    # value never clears the "not above fair value" condition -- which is the
+    # honest outcome, and the long-standing discipline of not buying what you
+    # cannot value.
+    if confidence in ("low", "none"):
+        notes.append(
+            f"The valuation methods ranged from {low:,.2f} to {high:,.2f}, too "
+            "wide a spread to publish a single figure, so no fair value is "
+            "given for this company."
+        )
+        fair = NAN
+
 
     if is_num(dispersion) and dispersion > 1.0:
         notes.append(

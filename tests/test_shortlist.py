@@ -17,6 +17,9 @@ QUALIFIER = {
     "implied_equity_premium": 0.04, "implied_return_is_floor": False,
     "confidence": "moderate", "revenue_cagr_3y": 0.10, "roic_5y_avg": 0.22,
     "dividend_yield": 0.01,
+    # Earnings that repeat: five profitable years, this one in line with them.
+    "profitable_years": 5.0, "profitable_years_of": 5.0,
+    "earnings_vs_own_average": 1.2,
 }
 
 
@@ -145,3 +148,48 @@ class TestTheBuilderImportsDoNotCollide:
                     f"{node.module}.{alias.name} is imported as {name!r}, which "
                     f"{bound.get(name)} already binds")
                 bound[name] = node.module or ""
+
+
+class TestEarningsThatDoNotRepeat:
+    """Every model here is anchored on recent earnings, so a single good year
+    after several bad ones is read as the normal state of the business.
+    Compugen lost money in four of its last five years; one licensing payment
+    turned a negative five-year average into a profit, scored as a 591%
+    return on capital, and put it on a list headed "worth buying now"."""
+
+    BASE = {
+        "share_count_reliable": 1.0, "profitable": True, "coverage": 16,
+        "quality": 80.0, "growth": 70.0, "safety": 75.0, "price": 72.0,
+        "fair_value": 120.0, "margin_of_safety": 0.15,
+        "implied_equity_premium": 0.04, "confidence": "moderate",
+        "profitable_years": 5.0, "profitable_years_of": 5.0,
+        "earnings_vs_own_average": 1.2,
+    }
+
+    def test_one_good_year_in_five_does_not_qualify(self):
+        assert not assess({**self.BASE, "profitable_years": 1.0})["qualifies"]
+
+    def test_four_of_five_is_enough(self):
+        assert assess({**self.BASE, "profitable_years": 4.0})["qualifies"]
+
+    def test_a_year_far_above_its_own_average_does_not_qualify(self):
+        """Nutex earned ten times its own five-year average, on arbitration
+        awards rather than operations. The filings cannot say that; the
+        arithmetic can say the year is not representative."""
+        assert not assess({**self.BASE, "earnings_vs_own_average": 10.0})["qualifies"]
+        assert not gate_results({**self.BASE,
+                                 "earnings_vs_own_average": 2.5})["not_a_windfall"]
+
+    def test_ordinary_growth_is_not_a_windfall(self):
+        assert gate_results({**self.BASE,
+                             "earnings_vs_own_average": 1.9})["not_a_windfall"]
+
+    def test_a_short_history_cannot_demonstrate_repetition(self):
+        assert not gate_results({**self.BASE, "profitable_years": 2.0,
+                                 "profitable_years_of": 2.0})["profits_repeat"]
+
+    def test_an_unmeasurable_peak_does_not_block_on_its_own(self):
+        """A negative five-year average leaves no ratio to test; the
+        profitable-years gate is what catches those."""
+        assert gate_results({**self.BASE,
+                             "earnings_vs_own_average": float("nan")})["not_a_windfall"]
