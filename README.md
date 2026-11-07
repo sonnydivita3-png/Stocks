@@ -35,7 +35,19 @@ accounts and transactions.
 
 ---
 
-## Web app
+## Valuation Desk (published page)
+
+The page most people will actually use is published at
+<https://claude.ai/artifact/XFFePLr1ynhKV6wJq8xEA7>. It ranks 515 US-listed
+companies — mega cap down to about $60m — on quality, price, growth and safety,
+explains each score in plain English, lets anyone look up a ticker or company
+name, and shows the market backdrop. Source and rebuild notes are in
+[`dashboard/`](dashboard/README.md); the snapshot behind it is built by
+`scripts/build_desk_snapshot.py` and rebuilt weekly.
+
+---
+
+## Web app (local)
 
 ```bash
 pip install -e ".[web]"
