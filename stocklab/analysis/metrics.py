@@ -867,6 +867,25 @@ def compute_metrics(f: Fundamentals, price: float | None = None,
         m["operating_margin_delta_3y"] = float(
             op_margin_hist.iloc[-1] - op_margin_hist.iloc[-4]
         )
+    # How long a loss-making company can fund itself at its current burn. For
+    # anything unproven this is the question that matters: not what it might
+    # be worth, but whether it survives to find out.
+    burn = -fcf if is_num(fcf := m.get("fcf")) and m["fcf"] < 0 else NAN
+    cash_on_hand = m.get("cash_and_investments")
+    if is_num(burn) and burn > 0 and is_num(cash_on_hand):
+        m["cash_runway_years"] = cash_on_hand / burn
+    elif is_num(m.get("fcf")) and m["fcf"] >= 0:
+        m["cash_runway_years"] = NAN      # funds itself; the question does not arise
+    m["burns_cash"] = float(is_num(m.get("fcf")) and m["fcf"] < 0)
+
+    # Growth plus profitability on one axis. Forty is the conventional bar at
+    # which a fast-growing business is judged to be growing economically
+    # rather than buying revenue.
+    g3 = m.get("revenue_cagr_3y")
+    fcf_m = m.get("fcf_margin")
+    if is_num(g3) and is_num(fcf_m):
+        m["rule_of_40"] = (g3 + fcf_m) * 100.0
+
     gm_hist = _annual_ratio(f, "gross_profit", "revenue")
     if len(gm_hist) >= 4:
         m["gross_margin_delta_3y"] = float(gm_hist.iloc[-1] - gm_hist.iloc[-4])

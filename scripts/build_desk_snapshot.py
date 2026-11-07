@@ -41,7 +41,7 @@ from stocklab.scoring import score, size_band  # noqa: E402
 # importing both under one name silently shadowed the regime's. Every run
 # after that failed the market backdrop with "'str' object has no attribute
 # 'get'" -- the regime's own symbol being called with the shortlist's body.
-from stocklab.shortlist import GATES  # noqa: E402
+from stocklab.shortlist import GATES, SCREENS  # noqa: E402
 from stocklab.shortlist import assess as assess_company  # noqa: E402
 from stocklab.util.mathx import is_num  # noqa: E402
 from stocklab.valuation import composite  # noqa: E402
@@ -73,7 +73,11 @@ COLUMNS = [
     "implied_return", "implied_erp", "implied_method", "implied_is_floor",
     "confidence", "share_count_ok", "profitable_years", "profitable_years_of",
     "earnings_vs_own_average", "category", "qualifies", "weakest_pillar",
-    "gates_passed", "gates_total", "gates_failed", "from_52w_high",
+    "gates_passed", "gates_total", "gates_failed", "passes",
+    "value_qualifies", "value_passed", "value_total", "value_failed",
+    "growth_qualifies", "growth_passed", "growth_total", "growth_failed",
+    "speculative_qualifies", "speculative_passed", "speculative_total",
+    "speculative_failed", "from_52w_high",
     "momentum_12_1", "vol63", "years_of_data",
 ]
 
@@ -205,14 +209,28 @@ def analyse(symbol: str) -> dict | None:
         "implied_equity_premium": report.implied_equity_premium,
         "implied_return_is_floor": report.implied_return_is_floor,
         "confidence": report.confidence,
+        # The reverse DCF's view of what the price assumes, against what the
+        # company has actually done. The growth screen's only price test.
+        "implied_growth": getattr(report.reverse, "implied_growth", None),
+        "historical_growth": getattr(report.reverse, "historical_growth", None),
     })
     row["category"] = verdict["category"]
+    row["weakest_pillar"] = num(verdict["weakest_pillar"])
+    # One row carries all three verdicts: a company is offered against every
+    # screen, because the category describes the business and the screens
+    # describe the case for buying it.
+    for name in SCREENS:
+        v = verdict[name]
+        row[f"{name}_qualifies"] = v["qualifies"]
+        row[f"{name}_passed"] = v["passed"]
+        row[f"{name}_total"] = v["total"]
+        row[f"{name}_failed"] = "|".join(v["failed"])
+    row["passes"] = "|".join(verdict["passes"])
+    # The bare names mean the value screen, as they did when there was one.
+    row["qualifies"] = verdict["qualifies"]
     row["gates_passed"] = verdict["gates_passed"]
     row["gates_total"] = verdict["gates_total"]
-    row["qualifies"] = verdict["qualifies"]
-    row["weakest_pillar"] = num(verdict["weakest_pillar"])
-    row["gates_failed"] = "|".join(
-        g.key for g in GATES if not verdict["gates"][g.key])
+    row["gates_failed"] = row["value_failed"]
     return row
 
 
@@ -238,6 +256,8 @@ def write_csvs(out_dir: Path, record: dict) -> None:
     both = [c for c in scored
             if (c.get("quality") or 0) > 60 and (c.get("price_score") or 0) > 50]
     qualifying = [c for c in companies if c.get("qualifies")]
+    growth_ok = [c for c in companies if c.get("growth_qualifies")]
+    spec_ok = [c for c in companies if c.get("speculative_qualifies")]
     near = [c for c in companies
             if not c.get("qualifies")
             and (c.get("gates_total") or 0) - (c.get("gates_passed") or 0) == 1]
@@ -247,15 +267,17 @@ def write_csvs(out_dir: Path, record: dict) -> None:
     # qualifies, this is the answer, not an empty list.
     with (out_dir / "screen.csv").open("w", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["step", "key", "label", "why_it_fails",
+        writer.writerow(["screen", "step", "key", "label", "why_it_fails",
                          "survivors", "eliminated"])
-        alive = list(companies)
-        for step, gate in enumerate(GATES, start=1):
-            before = len(alive)
-            alive = [c for c in alive
-                     if gate.key not in (c.get("gates_failed") or "").split("|")]
-            writer.writerow([step, gate.key, gate.label, gate.why,
-                             len(alive), before - len(alive)])
+        for screen, gates in SCREENS.items():
+            alive = list(companies)
+            for step, gate in enumerate(gates, start=1):
+                before = len(alive)
+                failed_key = f"{screen}_failed"
+                alive = [c for c in alive
+                         if gate.key not in (c.get(failed_key) or "").split("|")]
+                writer.writerow([screen, step, gate.key, gate.label, gate.why,
+                                 len(alive), before - len(alive)])
 
     with (out_dir / "counts.csv").open("w", newline="") as fh:
         writer = csv.writer(fh)
@@ -267,7 +289,9 @@ def write_csvs(out_dir: Path, record: dict) -> None:
             ("smaller_ab", len([c for c in top if c in smaller]), "of those worth under $10bn"),
             ("smaller_total", len(smaller), "companies worth under $10bn"),
             ("quality_and_price", len(both), "quality above 60 and price above 50"),
-            ("qualifying", len(qualifying), "clear every condition for a long-term position"),
+            ("qualifying", len(qualifying), "clear every value condition"),
+            ("growth_qualifying", len(growth_ok), "clear every growth condition"),
+            ("speculative_qualifying", len(spec_ok), "clear every speculative condition"),
             ("near_miss", len(near), "fail exactly one condition"),
             ("as_of", record["generated_at"][:10], "snapshot date"),
         ):

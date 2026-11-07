@@ -193,3 +193,80 @@ class TestEarningsThatDoNotRepeat:
         profitable-years gate is what catches those."""
         assert gate_results({**self.BASE,
                              "earnings_vs_own_average": float("nan")})["not_a_windfall"]
+
+
+class TestThreeScreensNotOne:
+    """A single condition set was a value screen wearing a general-purpose
+    label. Over 515 companies it passed one growth company out of 58 and none
+    of 116 speculative ones -- because demanding repeated profits, a discount
+    to a conservative valuation and a return above a Treasury rules out a
+    fast-growing company for being fast-growing, and an unproven one by
+    definition."""
+
+    GROWER = {
+        "share_count_reliable": 1.0, "revenue_reliable": 1.0,
+        "revenue_cagr_3y": 0.30, "revenue_cagr_5y": 0.28, "revenue_trend_r2": 0.92,
+        "gross_margin": 0.62, "gross_margin_delta_3y": 0.02,
+        "operating_margin": 0.14, "operating_margin_delta_3y": 0.05,
+        "share_count_cagr_3y": 0.01, "rule_of_40": 48.0, "fcf": 500.0,
+        "net_debt_to_ebitda": 0.4, "current_ratio": 2.4,
+        "implied_growth": 0.22, "historical_growth": 0.30,
+    }
+    PUNT = {
+        "share_count_reliable": 1.0, "revenue_reliable": 1.0, "profitable": False,
+        "revenue": 180.0, "revenue_cagr_3y": 0.55, "gross_margin": 0.38,
+        "operating_margin_delta_3y": 0.08, "cash_runway_years": 3.4,
+        "share_count_cagr_3y": 0.08, "ev_sales": 6.0, "current_ratio": 2.9,
+    }
+
+    def test_a_grower_passes_the_growth_screen(self):
+        assert assess(self.GROWER)["growth"]["qualifies"]
+
+    def test_the_same_grower_need_not_pass_the_value_screen(self):
+        """It has no fair value, no premium over a Treasury and no five-year
+        profit record. On one screen that was a rejection; it is now simply a
+        different question."""
+        assert not assess(self.GROWER)["value"]["qualifies"]
+
+    def test_paying_for_growth_never_delivered_fails(self):
+        """The reverse DCF says what the price assumes. Requiring more than
+        the company has done is the definition of paying up for hope."""
+        dear = {**self.GROWER, "implied_growth": 0.45, "historical_growth": 0.30}
+        assert not gate_results(dear, "growth")["priced_within_record"]
+
+    def test_growth_bought_by_issuing_stock_fails(self):
+        diluted = {**self.GROWER, "share_count_cagr_3y": 0.12}
+        assert not gate_results(diluted, "growth")["not_bought_with_stock"]
+
+    def test_growth_on_collapsing_margins_fails(self):
+        thin = {**self.GROWER, "gross_margin_delta_3y": -0.11}
+        assert not gate_results(thin, "growth")["unit_economics"]
+
+    def test_one_jump_is_not_a_trend(self):
+        lumpy = {**self.GROWER, "revenue_trend_r2": 0.35}
+        assert not gate_results(lumpy, "growth")["steady_climb"]
+
+    def test_a_punt_with_runway_and_economics_passes_the_punt_screen(self):
+        assert assess(self.PUNT)["speculative"]["qualifies"]
+
+    def test_a_punt_without_runway_does_not(self):
+        """The only question that matters for something unproven is whether
+        it survives long enough for the thesis to be settled."""
+        assert not gate_results({**self.PUNT, "cash_runway_years": 0.8,
+                                 "fcf": -50.0}, "speculative")["runway"]
+
+    def test_an_established_company_is_not_offered_as_a_punt(self):
+        """The speculative conditions are looser by design, so without this
+        Nvidia and Duolingo passed a list headed 'speculative'."""
+        established = {**self.GROWER, "profitable": True, "fair_value": 100.0,
+                       "coverage": 16}
+        assert not gate_results(established, "speculative")["unproven"]
+        assert not assess(established)["speculative"]["qualifies"]
+
+    def test_fast_growth_is_no_longer_mistaken_for_a_windfall(self):
+        """A grower should earn more than its own five-year average; that is
+        what growth is. A windfall is a profit spike with no sales behind it."""
+        grew = {"earnings_vs_own_average": 3.0, "revenue_cagr_3y": 0.30}
+        spiked = {"earnings_vs_own_average": 3.0, "revenue_cagr_3y": 0.01}
+        assert gate_results(grew, "value")["not_a_windfall"]
+        assert not gate_results(spiked, "value")["not_a_windfall"]
