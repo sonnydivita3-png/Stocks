@@ -107,6 +107,27 @@
   .vd-fold > summary { cursor: pointer; padding: 10px 0;
     font-size: var(--cds-font-size-body); }
   .vd-fold > summary:hover { color: var(--color-fg); }
+  .vd-chip-cat { border-style: dashed; }
+  .vd-step { margin-bottom: var(--cds-pad-sm); }
+  .vd-step-head { display: flex; justify-content: space-between; align-items: baseline;
+    gap: var(--cds-pad-sm); font-size: var(--cds-font-size-body); }
+  .vd-step-count { font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .vd-step-track { display: flex; height: 8px; margin: 4px 0 2px;
+    border-radius: 999px; overflow: hidden; background: var(--color-panel); }
+  .vd-step-kept, .vd-step-lost { display: block; height: 100%; }
+  .vd-step-lost { background: var(--color-border-line); }
+  .vd-step-note { margin: 0; font-size: var(--cds-font-size-caption);
+    color: var(--color-fg-muted); }
+  .vd-near { list-style: none; margin: 0; padding: 0; display: grid;
+    gap: var(--cds-pad-xs); }
+  .vd-near li { display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: var(--cds-pad-xs) var(--cds-pad-sm);
+    padding-bottom: var(--cds-pad-xs);
+    border-bottom: 1px solid var(--color-border-line); }
+  .vd-near-name { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption);
+    flex: 1 1 8rem; }
+  .vd-near-miss { font-size: var(--cds-font-size-caption); color: var(--color-warn);
+    flex: 0 0 auto; }
   .vd-value { display: grid; gap: 4px; padding: var(--cds-pad-sm) 0;
     border-top: 1px solid var(--color-border-line);
     border-bottom: 1px solid var(--color-border-line); }
@@ -241,6 +262,10 @@
       <div class="vd-pillar"><b>Return above Treasury</b>
         <span>How much more per year you would earn at today's price than by lending the
         money to the US government, if the business performs as its history suggests.</span></div>
+      <div class="vd-pillar"><b>What kind of company</b>
+        <span>Each one is labelled: growing fast, a quality compounder, pays an income,
+        steady, shrinking, or speculative. The label describes the business, not whether
+        the price is right.</span></div>
       <div class="vd-pillar"><b>Not yet profitable</b>
         <span>A label on companies still making a loss. Their price score is weak or missing,
         because there are no profits to value.</span></div>
@@ -292,6 +317,47 @@
       <ul id="vd-sugg" class="vd-sugg" data-draw="ticker-options" data-source="companies"
           role="listbox" aria-label="Matching companies" hidden></ul>
       <div data-draw="lookup" data-source="companies"></div>
+    </div>
+  </section>
+
+  <section class="vd-section">
+    <h2>Worth buying now</h2>
+    <p class="vd-note">The grade below is an <em>average</em> of four scores, so a company
+      can be excellent at three things, badly overpriced at the fourth, and still come out
+      with a good grade. That is the right way to ask &ldquo;is this a sound
+      business?&rdquo; and the wrong way to ask &ldquo;should I buy it, at this
+      price?&rdquo; This list asks the second question a different way: ten conditions,
+      <b>every one of which has to hold</b>. Nothing makes up for anything.</p>
+    <p class="vd-note">Finding few companies is a real answer, not a broken screen. When
+      good businesses are expensive, almost nothing clears the last two conditions, and
+      that is worth knowing before you buy. The steps below show exactly where today&rsquo;s
+      market stops qualifying.</p>
+
+    <div class="vd-card">
+      <p class="vd-label">Clear every condition today</p>
+      <b class="vd-big" data-draw="count-qualify" data-source="counts" data-field="value"
+         data-where="metric=qualifying">&mdash;</b>
+      <p class="vd-sub">out of <span data-draw="count-of" data-source="counts"
+        data-field="value" data-where="metric=total">&mdash;</span> companies examined
+        &middot; <span data-draw="count-near" data-source="counts" data-field="value"
+        data-where="metric=near_miss">&mdash;</span> more fail exactly one</p>
+    </div>
+
+    <div class="vd-card">
+      <p class="vd-label">Where companies drop out</p>
+      <p class="vd-note">Each condition is applied to whatever survived the one before it.
+        The big falls are where the market is tight.</p>
+      <div data-draw="funnel" data-source="screen"></div>
+    </div>
+
+    <div class="vd-cards" data-draw="qualify-cards" data-source="companies"></div>
+
+    <div class="vd-card">
+      <p class="vd-label">Nearly there</p>
+      <p class="vd-note">Companies failing exactly one condition, and which one. A price
+        fall or one better quarter moves a name from here onto the list above, so this is
+        the watchlist rather than the buy list.</p>
+      <div data-draw="near-miss" data-source="companies"></div>
     </div>
   </section>
 
@@ -509,6 +575,11 @@
   const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : []; };
   const SIZE_WORD = {mega: 'Mega', large: 'Large', mid: 'Mid', small: 'Small', micro: 'Micro', unknown: '—'};
   const SMALLER = new Set(['small', 'micro']);
+  const CATEGORY_WORD = {
+    growth: 'Growing fast', compounder: 'Quality compounder',
+    income: 'Pays an income', steady: 'Steady', shrinking: 'Shrinking',
+    speculative: 'Speculative', unclear: 'Cannot be sized',
+  };
   const dollars = (v) => (v == null || !isFinite(v)) ? '\u2014'
     : '$' + (Math.abs(v) >= 1000 ? d3.format(',.0f')(v) : d3.format(',.2f')(v));
   // The Treasury yield every "return above Treasury" figure is measured against.
@@ -541,6 +612,9 @@
   scalar('count-total', 'counts', bySummary('total'));
   scalar('count-ab', 'counts', bySummary('grade_ab'));
   scalar('count-both', 'counts', bySummary('quality_and_price'));
+  scalar('count-qualify', 'counts', bySummary('qualifying'));
+  scalar('count-of', 'counts', bySummary('total'));
+  scalar('count-near', 'counts', bySummary('near_miss'));
   scalar('regime-score', 'regime_summary', bySummary('score'));
   scalar('regime-label', 'regime_summary', (rows) => {
     const v = bySummary('label')(rows);
@@ -642,6 +716,11 @@
     const chip = document.createElement('span'); chip.className = 'vd-chip';
     chip.textContent = SIZE_WORD[row.size] || '—';
     top.append(sym, chip);
+    if (CATEGORY_WORD[row.category]) {
+      const cat = document.createElement('span'); cat.className = 'vd-chip vd-chip-cat';
+      cat.textContent = CATEGORY_WORD[row.category];
+      top.append(cat);
+    }
     // A company that does not yet make a profit is a different proposition, and
     // a reader without a finance background will not infer it from the scores.
     if (String(row.profitable).toLowerCase() === 'false') {
@@ -706,6 +785,97 @@
     bar.append(b, n);
     return bar;
   };
+
+  // ---- the screen ----------------------------------------------------
+  dash.draw('funnel', (el) => {
+    const d = dash.data('screen');
+    el.replaceChildren();
+    if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
+    if (d.status !== 'ok') return;
+    const rows = rowsOf('screen');
+    if (!rows.length) return;
+    const start = (num(rows[0].survivors) || 0) + (num(rows[0].eliminated) || 0);
+    if (!start) return;
+
+    rows.forEach((r) => {
+      const left = num(r.survivors) || 0;
+      const gone = num(r.eliminated) || 0;
+      const step = document.createElement('div'); step.className = 'vd-step';
+
+      const head = document.createElement('div'); head.className = 'vd-step-head';
+      const label = document.createElement('span'); label.textContent = r.label;
+      const count = document.createElement('b'); count.className = 'vd-step-count';
+      count.textContent = fmtI(left) + ' left';
+      head.append(label, count);
+
+      const track = document.createElement('div'); track.className = 'vd-step-track';
+      const kept = document.createElement('span'); kept.className = 'vd-step-kept';
+      kept.style.width = (100 * left / start) + '%';
+      kept.style.background = dash.colors[0];
+      const lost = document.createElement('span'); lost.className = 'vd-step-lost';
+      lost.style.width = (100 * gone / start) + '%';
+      track.append(kept, lost);
+
+      const note = document.createElement('p'); note.className = 'vd-step-note';
+      note.textContent = gone
+        ? fmtI(gone) + ' dropped here \u2014 ' + r.why_it_fails
+        : 'none dropped here';
+      step.append(head, track, note);
+      el.appendChild(step);
+    });
+  });
+
+  const byWeakest = (a, b) => (num(b.weakest_pillar) || 0) - (num(a.weakest_pillar) || 0);
+
+  dash.draw('qualify-cards', (el) => {
+    const d = dash.data('companies');
+    el.replaceChildren();
+    if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
+    if (d.status !== 'ok') return;
+    const pass = rowsOf('companies')
+      .filter((r) => String(r.qualifies).toLowerCase() === 'true')
+      .sort(byWeakest);
+    if (!pass.length) {
+      const none = document.createElement('p'); none.className = 'vd-miss';
+      none.textContent = 'Nothing clears every condition today. That is a reading on '
+        + 'the market, not a fault: the steps above show which condition it fails. '
+        + 'The watchlist below is where to look when prices move.';
+      el.appendChild(none); return;
+    }
+    cardList(el, 'qualify-cards', pass);
+  });
+
+  dash.draw('near-miss', (el) => {
+    const d = dash.data('companies');
+    el.replaceChildren();
+    if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
+    if (d.status !== 'ok') return;
+    const labels = {};
+    rowsOf('screen').forEach((r) => { labels[r.key] = r.label; });
+    const near = rowsOf('companies')
+      .filter((r) => String(r.qualifies).toLowerCase() !== 'true'
+        && (num(r.gates_total) || 0) - (num(r.gates_passed) || 0) === 1)
+      .sort(byWeakest)
+      .slice(0, 12);
+    if (!near.length) {
+      const none = document.createElement('p'); none.className = 'vd-miss';
+      none.textContent = 'No company is one condition away today.';
+      el.appendChild(none); return;
+    }
+    const list = document.createElement('ul'); list.className = 'vd-near';
+    near.forEach((r) => {
+      const li = document.createElement('li');
+      const sym = document.createElement('b'); sym.textContent = r.symbol;
+      const nm = document.createElement('span'); nm.className = 'vd-near-name';
+      nm.textContent = r.name;
+      const miss = document.createElement('span'); miss.className = 'vd-near-miss';
+      const key = String(r.gates_failed || '').split('|')[0];
+      miss.textContent = 'fails: ' + (labels[key] || key).toLowerCase();
+      li.append(sym, nm, miss);
+      list.appendChild(li);
+    });
+    el.appendChild(list);
+  });
 
   dash.draw('top-cards', (el) => {
     const d = dash.data('companies');

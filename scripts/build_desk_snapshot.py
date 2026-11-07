@@ -225,6 +225,26 @@ def write_csvs(out_dir: Path, record: dict) -> None:
                if c.get("size") in ("small", "micro") or (c.get("market_cap") or 0) < 1e10]
     both = [c for c in scored
             if (c.get("quality") or 0) > 60 and (c.get("price_score") or 0) > 50]
+    qualifying = [c for c in companies if c.get("qualifies")]
+    near = [c for c in companies
+            if not c.get("qualifies")
+            and (c.get("gates_total") or 0) - (c.get("gates_passed") or 0) == 1]
+
+    # The funnel is the point of the screen as much as the survivors are: it
+    # says which condition the market is failing today. When almost nothing
+    # qualifies, this is the answer, not an empty list.
+    with (out_dir / "screen.csv").open("w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["step", "key", "label", "why_it_fails",
+                         "survivors", "eliminated"])
+        alive = list(companies)
+        for step, gate in enumerate(GATES, start=1):
+            before = len(alive)
+            alive = [c for c in alive
+                     if gate.key not in (c.get("gates_failed") or "").split("|")]
+            writer.writerow([step, gate.key, gate.label, gate.why,
+                             len(alive), before - len(alive)])
+
     with (out_dir / "counts.csv").open("w", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["metric", "value", "note"])
@@ -235,6 +255,8 @@ def write_csvs(out_dir: Path, record: dict) -> None:
             ("smaller_ab", len([c for c in top if c in smaller]), "of those worth under $10bn"),
             ("smaller_total", len(smaller), "companies worth under $10bn"),
             ("quality_and_price", len(both), "quality above 60 and price above 50"),
+            ("qualifying", len(qualifying), "clear every condition for a long-term position"),
+            ("near_miss", len(near), "fail exactly one condition"),
             ("as_of", record["generated_at"][:10], "snapshot date"),
         ):
             writer.writerow(row)
