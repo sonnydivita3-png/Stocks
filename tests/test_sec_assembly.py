@@ -7,7 +7,6 @@ distinction that point-in-time work depends on.
 """
 from __future__ import annotations
 
-import math
 
 import pandas as pd
 import pytest

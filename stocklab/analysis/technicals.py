@@ -272,7 +272,6 @@ def technical_snapshot(frame: pd.DataFrame, benchmark: pd.Series | None = None) 
         snap[f"dist_sma{w}"] = safe_div(close - _f(ma), _f(ma))
 
     # 52-week position: where in its own range the stock sits.
-    window = px.tail(252)
     hi_52 = float(ind["high"].tail(252).max())
     lo_52 = float(ind["low"].tail(252).min())
     snap["high_52w"], snap["low_52w"] = hi_52, lo_52

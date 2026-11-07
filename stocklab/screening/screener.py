@@ -17,10 +17,8 @@ import operator
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-import numpy as np
 import pandas as pd
 
-from ..util.mathx import is_num
 from .factors import add_ranks, composite_score
 
 _OPS: dict[str, Callable[[Any, Any], Any]] = {

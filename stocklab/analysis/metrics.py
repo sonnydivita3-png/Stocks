@@ -208,7 +208,7 @@ def piotroski_f_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
         return float(v) if is_num(v) else NAN
 
     ni, ni_p = val(cur, "net_income"), val(prev, "net_income")
-    cfo, cfo_p = val(cur, "cfo"), val(prev, "cfo")
+    cfo = val(cur, "cfo")
     ta, ta_p = val(cur, "total_assets"), val(prev, "total_assets")
     ta_pp = val(a.iloc[-3], "total_assets") if len(a) >= 3 else NAN
 
@@ -327,7 +327,6 @@ def beneish_m_score(f: Fundamentals) -> tuple[float, dict[str, float]]:
     ta, ta_p = v(cur, "total_assets"), v(prev, "total_assets")
     ppe, ppe_p = v(cur, "ppe_net"), v(prev, "ppe_net")
     ca, ca_p = v(cur, "current_assets"), v(prev, "current_assets")
-    sec_, sec_p = v(cur, "short_term_investments"), v(prev, "short_term_investments")
     da, da_p = v(cur, "depreciation_amortization"), v(prev, "depreciation_amortization")
     sga, sga_p = v(cur, "sga"), v(prev, "sga")
     tl, tl_p = v(cur, "total_liabilities"), v(prev, "total_liabilities")

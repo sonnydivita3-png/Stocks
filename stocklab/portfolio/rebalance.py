@@ -28,7 +28,7 @@ import pandas as pd
 from ..config import settings
 from ..util.mathx import NAN, is_num, safe_div
 from .ledger import LedgerState, select_lots
-from .models import Account, Lot, Position
+from .models import Account
 
 
 @dataclass

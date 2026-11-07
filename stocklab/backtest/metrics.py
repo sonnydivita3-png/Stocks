@@ -11,8 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ..analysis.risk import return_stats
-from ..config import settings
-from ..util.mathx import NAN, is_num, max_drawdown, safe_div, ulcer_index
+from ..util.mathx import NAN, is_num, safe_div
 
 
 def performance_summary(returns: pd.Series, equity: pd.Series | None = None,

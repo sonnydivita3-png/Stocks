@@ -13,13 +13,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
 import pandas as pd
 
 from ..analysis.technicals import (
-    atr, indicator_frame, rsi, sma, support_resistance, swing_points,
+    indicator_frame, swing_points,
 )
-from ..util.mathx import NAN, clamp, interp_score, is_num, linreg, safe_div
+from ..util.mathx import NAN, is_num, safe_div
 
 
 @dataclass

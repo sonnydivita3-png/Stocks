@@ -1,8 +1,6 @@
 """CLI wiring. Network-dependent commands are only checked for help text."""
 from __future__ import annotations
 
-from datetime import date
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner

@@ -20,13 +20,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import numpy as np
 import pandas as pd
 
-from ..config import settings
-from ..data.providers import fred
 from ..data.providers.sec import Fundamentals
-from ..util.mathx import NAN, is_num, median_finite, safe_div
+from ..util.mathx import NAN, is_num, safe_div
 from . import ddm, graham, multiples, residual_income
 from .dcf import DCFAssumptions, auto_assumptions, run_dcf, scenario_set
 from .epv import earnings_power_value
@@ -110,7 +107,6 @@ def value(
     include_relative: bool = True,
 ) -> ValuationReport:
     """Run every applicable model and assemble the range."""
-    cfg = settings()
     notes: list[str] = []
     estimates: list[ModelEstimate] = []
 

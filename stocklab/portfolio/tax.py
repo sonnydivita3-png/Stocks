@@ -21,12 +21,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-import numpy as np
 import pandas as pd
 
 from ..util.mathx import NAN, is_num, safe_div
 from .ledger import WASH_SALE_WINDOW_DAYS, LedgerState
-from .models import Account, Lot, Position, RealizedGain
+from .models import Account
 
 # 2026 federal rates. Long-term brackets are indexed annually, so these are
 # defaults to override, not constants. State tax is not modelled: Wisconsin,

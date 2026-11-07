@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from ..data.providers.sec import Fundamentals
-from ..util.mathx import NAN, clamp, is_num, mean_finite, safe_div, sum_finite, zero_if_nan
+from ..util.mathx import NAN, clamp, is_num, mean_finite, safe_div, zero_if_nan
 
 
 @dataclass

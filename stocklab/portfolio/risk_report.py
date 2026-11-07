@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from ..analysis.risk import (
-    STRESS_SCENARIOS, beta_alpha, correlation_matrix, diversification_ratio,
+    beta_alpha, correlation_matrix, diversification_ratio,
     effective_holdings, return_stats, stress_test, to_returns,
 )
 from ..data.providers.yahoo import fetch_closes, fetch_history

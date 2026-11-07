@@ -15,9 +15,8 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from ..analysis.risk import kelly_fraction
 from ..portfolio.sizing import atr_position_size
-from ..util.mathx import NAN, clamp, interp_score, is_num, safe_div
+from ..util.mathx import NAN, interp_score, is_num, safe_div
 from .signals import Setup, evaluate_all
 from .stops import StopPlan, atr_stop, structure_stop
 
@@ -58,12 +57,20 @@ def staged_entry(price: float, stop: StopPlan, tranches: int = 3,
     """
     if not is_num(price) or price <= 0 or tranches < 1:
         return pd.DataFrame()
+
+    # Never place a tranche at or below the stop. A limit below the stop would
+    # fill into a position that is already invalidated, and it quietly turns a
+    # staged entry into averaging down through the exit level. The ladder is
+    # compressed to reach at most 80% of the way to the stop.
+    if is_num(stop.stop) and stop.stop < price:
+        max_spread = 0.80 * (price - stop.stop) / price
+        spread = min(spread, max_spread)
+
     rows = []
     for i in range(tranches):
         # First tranche at market, the rest stepped down.
         limit = price * (1.0 - spread * i / max(tranches - 1, 1))
         weight = 1.0 / tranches
-        r = stop.r_multiple(limit) if is_num(stop.risk_per_share) else NAN
         rows.append({
             "tranche": i + 1,
             "limit_price": round(limit, 2),

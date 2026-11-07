@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from stocklab.config import configure, settings          # noqa: E402
+from stocklab.config import configure          # noqa: E402
 from stocklab.data.cache import reset_cache              # noqa: E402
 from stocklab.data.providers.sec import Fundamentals     # noqa: E402
 

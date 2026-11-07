@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-import pandas as pd
 
 from ..data.providers import fred
 from ..data.providers.yahoo import fetch_closes, fetch_history

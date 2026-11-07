@@ -1,7 +1,6 @@
 """Lot accounting, tax treatment, rebalancing and sizing."""
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
 import pandas as pd
@@ -410,3 +409,38 @@ class TestStore:
         assert "CCC" in list(store.watchlist()["symbol"])
         store.unwatch("CCC")
         assert store.watchlist().empty
+
+
+class TestStagedEntry:
+    def test_no_tranche_is_placed_below_the_stop(self):
+        """A limit below the stop would fill into an invalidated position.
+
+        It also quietly turns a staged entry into averaging down through the
+        exit level, which is the opposite of what the stop is for.
+        """
+        from stocklab.entry.stops import StopPlan
+        from stocklab.entry.timing import staged_entry
+
+        # A tight stop, 3% away, against a ladder that would reach 5% down.
+        stop = StopPlan(entry=100.0, stop=97.0, method="test",
+                        risk_per_share=3.0, risk_pct=0.03)
+        ladder = staged_entry(100.0, stop, tranches=3, spread=0.05)
+        assert (ladder["limit_price"] > stop.stop).all()
+        assert (ladder["r_to_stop"] > 0).all()
+
+    def test_a_wide_stop_leaves_the_ladder_untouched(self):
+        from stocklab.entry.stops import StopPlan
+        from stocklab.entry.timing import staged_entry
+
+        stop = StopPlan(entry=100.0, stop=80.0, method="test",
+                        risk_per_share=20.0, risk_pct=0.20)
+        ladder = staged_entry(100.0, stop, tranches=3, spread=0.05)
+        assert ladder["limit_price"].iloc[-1] == pytest.approx(95.0)
+
+    def test_allocations_sum_to_one(self):
+        from stocklab.entry.stops import StopPlan
+        from stocklab.entry.timing import staged_entry
+
+        stop = StopPlan(entry=100.0, stop=90.0, method="test",
+                        risk_per_share=10.0, risk_pct=0.10)
+        assert staged_entry(100.0, stop, tranches=4)["allocation"].sum() == pytest.approx(1.0)

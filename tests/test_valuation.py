@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-from dataclasses import replace
 
 import pandas as pd
 import pytest
@@ -10,12 +9,12 @@ import pytest
 from stocklab.analysis.metrics import compute_metrics, normalize_split_basis, share_count
 from stocklab.valuation import ddm, graham, residual_income
 from stocklab.valuation.dcf import (
-    DCFAssumptions, auto_assumptions, run_dcf, scenario_set, sensitivity,
+    DCFAssumptions, run_dcf, scenario_set, sensitivity,
 )
 from stocklab.valuation.epv import earnings_power_value
 from stocklab.valuation.reverse_dcf import implied_growth, implied_discount_rate
 from stocklab.valuation.wacc import (
-    CostOfCapital, synthetic_rating, terminal_growth_cap,
+    synthetic_rating, terminal_growth_cap,
 )
 
 

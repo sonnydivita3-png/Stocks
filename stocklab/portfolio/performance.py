@@ -17,16 +17,16 @@ is the behavioural cost or benefit of the investor's own timing.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 
 import numpy as np
 import pandas as pd
 
 from ..analysis.risk import beta_alpha, return_stats, to_returns
 from ..data.providers.yahoo import fetch_closes, fetch_history
-from ..util.mathx import NAN, is_num, safe_div, xirr
+from ..util.mathx import NAN, is_num, xirr
 from .ledger import LedgerState
-from .models import Account, TxnType, Transaction
+from .models import TxnType, Transaction
 
 
 @dataclass

@@ -26,8 +26,8 @@ import numpy as np
 import pandas as pd
 
 from ..config import settings
-from ..util.mathx import NAN, is_num, safe_div
-from .engine import BacktestResult, run
+from ..util.mathx import NAN, is_num
+from .engine import run
 from .metrics import performance_summary
 
 

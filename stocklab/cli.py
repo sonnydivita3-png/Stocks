@@ -12,13 +12,12 @@ without its failure modes, invites more confidence than the number deserves.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
 
 import click
 import pandas as pd
 
 from .company import Company
-from .config import configure, settings
+from .config import configure
 from .data.cache import cache
 from .reporting import console as ui
 from .util.mathx import NAN, is_num

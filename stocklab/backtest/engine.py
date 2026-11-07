@@ -24,9 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable
 
-import numpy as np
 import pandas as pd
 
 from ..config import settings

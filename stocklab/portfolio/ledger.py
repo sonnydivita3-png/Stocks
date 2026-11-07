@@ -24,11 +24,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-import pandas as pd
 
 from ..util.mathx import NAN, is_num, safe_div
 from .models import (
-    Account, AccountType, CostBasisMethod, Lot, Position, RealizedGain,
+    Account, CostBasisMethod, Lot, Position, RealizedGain,
     Transaction, TxnType,
 )
 

@@ -8,7 +8,6 @@ missing dividend becomes a 0% yield.
 """
 from __future__ import annotations
 
-import math
 from typing import Any, Iterable, Sequence
 
 import pandas as pd

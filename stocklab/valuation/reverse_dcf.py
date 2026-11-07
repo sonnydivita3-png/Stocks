@@ -17,7 +17,7 @@ from dataclasses import dataclass, replace
 
 import pandas as pd
 
-from ..util.mathx import NAN, is_num, safe_div
+from ..util.mathx import NAN, is_num
 from .dcf import DCFAssumptions, run_dcf
 
 
