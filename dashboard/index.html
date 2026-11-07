@@ -154,6 +154,7 @@
 
   .vd-plot { position: relative; min-width: 0; }
   .vd-plot svg { display: block; }
+  .vd-plot { position: relative; }
   .vd-tip { position: absolute; pointer-events: none; opacity: 0;
     background: var(--cds-surface-popover); border: 1px solid var(--cds-border);
     border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover);
@@ -343,8 +344,7 @@
           <button type="button" data-act="in" aria-label="Zoom in">+</button>
           <button type="button" data-act="reset">Reset</button>
         </div>
-        <div data-draw="scatter" style="min-height: 440px"></div>
-        <div class="vd-tip" data-tip="scatter"></div>
+        <div data-draw="scatter" class="vd-plot" style="min-height: 440px"></div>
       </div>
     </div>
   </section>
@@ -787,13 +787,16 @@
       .attr('text-anchor', 'middle').attr('font-size', 10).attr('fill', 'var(--color-fg-muted)')
       .text('Price score \u2192');
 
-    const tipBox = el.parentElement.querySelector('[data-tip="scatter"]');
+    const tipBox = document.createElement('div');
+    tipBox.className = 'vd-tip';
+    el.appendChild(tipBox);
+
     const dots = gPlot.selectAll('circle').data(rows).join('circle')
       .attr('fill', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
       .attr('stroke', (p) => (SMALLER.has(p.size) || p.cap < 1e10) ? dash.colors[0] : dash.colors[1])
       .attr('fill-opacity', .32)
       .on('mousemove', (ev, p) => {
-        const b = el.parentElement.getBoundingClientRect();
+        const b = el.getBoundingClientRect();
         const lines = [
           'Grade ' + (p.grade || '\u2014') + ' \u00b7 overall '
             + (p.overall == null ? '\u2014' : fmtI(p.overall)),
