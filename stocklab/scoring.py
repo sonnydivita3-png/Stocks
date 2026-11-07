@@ -111,7 +111,13 @@ def grade_for(score) -> str:
 # penalised for an accounting convention they did not choose.
 EXPECT_QUALITY, EXPECT_QUALITY_FIN = 4, 3
 EXPECT_GROWTH = 3
-EXPECT_SAFETY = 3
+# Four, not three, on purpose. An operating company produces five or six of
+# the six safety measures. An insurer produces exactly three, and all three
+# look excellent for a well-run one -- while the thing that actually sinks an
+# insurer, reserves set too low against catastrophe exposure, appears in none
+# of them. Expecting four means those three are shrunk a quarter of the way to
+# neutral: strong on what can be seen, not a clean bill of health.
+EXPECT_SAFETY = 4
 EXPECT_PRICE = 3
 
 # A quality score resting on a single ratio is not a judgement either.
@@ -262,7 +268,12 @@ def plain_language(m: dict, report=None) -> dict[str, str]:
         says["growth"] = f"Sales shrinking, about {growth * 100:.0f}% a year."
 
     debt = m.get("net_debt_to_ebitda")
-    if not is_num(debt):
+    equity = m.get("equity_to_assets")
+    if bool(m.get("is_financial")) and is_num(equity):
+        says["safety"] = (f"Holds ${equity * 100:.0f} of its own money behind every $100 "
+                          "of assets. Whether it has set aside enough for future claims "
+                          "is not visible in these figures.")
+    elif not is_num(debt):
         says["safety"] = "Debt load cannot be judged from the filings."
     elif debt < 0:
         says["safety"] = "Holds more cash than debt."

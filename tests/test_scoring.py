@@ -277,3 +277,42 @@ class TestInsurersAreNotFlatteredByFloat:
         says = plain_language(self.INSURER)
         assert "shareholders' money" in says["quality"]
         assert "Not enough history" not in says["quality"]
+
+
+class TestInsurerSafetyIsNotACleanBillOfHealth:
+    """Three of the six safety measures are meaningless for an insurer, and
+    the three that remain all look excellent for a well-run one. The risk that
+    actually sinks insurers -- reserves set too low against catastrophe
+    exposure -- is in none of them, so three measures must not read as 100."""
+
+    STRONG_INSURER = {"is_financial": 1.0, "equity_to_assets": 0.30,
+                      "interest_coverage": 40.0, "fcf_positive_years": 7}
+
+    def test_three_perfect_measures_do_not_make_a_perfect_score(self):
+        from stocklab.scoring import safety_score
+        value, count = safety_score(self.STRONG_INSURER)
+        assert count == 3
+        assert value < 95
+
+    def test_a_fully_measured_company_is_not_shrunk(self):
+        """Six measures is more than expected, so the result is the plain mean
+        of the sub-scores with no pull toward neutral."""
+        from stocklab.scoring import safety_score
+        value, count = safety_score({
+            "net_debt_to_ebitda": -1.0, "interest_coverage": 40.0, "altman_z": 9.0,
+            "current_ratio": 3.0, "fcf_positive_years": 7, "equity_to_assets": 0.85})
+        assert count == 6
+        # Five sub-scores max out; a current ratio of 3.0 is worth 95, not 100.
+        assert value == pytest.approx((100 * 5 + 95) / 6)
+        assert value > 99
+
+    def test_a_weak_insurer_still_scores_below_a_strong_one(self):
+        from stocklab.scoring import safety_score
+        weak = safety_score(dict(self.STRONG_INSURER, equity_to_assets=0.05))[0]
+        assert weak < safety_score(self.STRONG_INSURER)[0] - 15
+
+    def test_the_sentence_says_what_the_score_cannot_see(self):
+        from stocklab.scoring import plain_language
+        says = plain_language(self.STRONG_INSURER)
+        assert "future claims" in says["safety"]
+        assert "cannot be judged" not in says["safety"]
