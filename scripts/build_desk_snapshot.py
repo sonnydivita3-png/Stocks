@@ -21,6 +21,7 @@ import csv
 import json
 import logging
 import sys
+import time
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -320,8 +321,20 @@ def main() -> int:
             log.warning("saved progress unreadable; starting fresh")
 
     log.info("market regime...")
-    try:
-        state = assess("SPY")
+    # One network hiccup here used to cost the run its whole market-backdrop
+    # section: the failure was caught, logged at warning level and never
+    # mentioned again, so the build reported success having written three
+    # fewer files than it should have.
+    state = None
+    for attempt in range(1, 4):
+        try:
+            state = assess("SPY")
+            break
+        except Exception as exc:  # noqa: BLE001 - an outage must not stop the run
+            log.warning("regime attempt %d/3 failed: %s", attempt, exc)
+            if attempt < 3:
+                time.sleep(2 ** attempt)
+    if state is not None:
         record["regime"] = {
             "label": state["label"], "score": num(state["composite_score"]),
             "exposure": num(state["exposure_multiplier"]),
@@ -332,9 +345,8 @@ def main() -> int:
             "credit": {k: num(v) for k, v in state["credit"].items()},
             "rates": {k: num(v) for k, v in state["rates"].items()},
         }
-    except Exception as exc:  # noqa: BLE001 - a regime outage must not stop the run
-        log.warning("regime unavailable: %s", exc)
-        record.setdefault("regime", None)
+    else:
+        record["regime"] = None
 
     if args.symbols:
         universe = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
@@ -363,6 +375,14 @@ def main() -> int:
     log.info("\ndone: %d companies (%d scored), %d errors",
              len(record["companies"]), len(scored), len(record["errors"]))
     log.info("wrote %s", ", ".join(sorted(p.name for p in out_dir.glob("*.csv"))))
+    if not record.get("regime"):
+        # Say it at the end, where it will be read. A run that quietly ships
+        # three fewer files than usual is worse than one that fails.
+        log.error("INCOMPLETE: the market backdrop could not be fetched, so "
+                  "regime_components.csv, regime_readings.csv and "
+                  "regime_summary.csv were not written. Re-run before "
+                  "publishing, or the page keeps the previous backdrop.")
+        return 2
     return 0
 
 
