@@ -35,6 +35,22 @@ accounts and transactions.
 
 ---
 
+## Web app
+
+```bash
+pip install -e ".[web]"
+stocklab serve
+```
+
+Opens at `http://localhost:8787`: dashboard, company analysis, portfolio by
+account, performance, risk, tax and harvesting, screens and regime. It reads
+your real portfolio database on every request, so a trade recorded a minute ago
+is on the next page load. Every page has a matching `/api/...` JSON endpoint.
+
+`--host 0.0.0.0` makes it reachable from a phone on the same network. There is
+no authentication and the pages show your actual holdings, so that is fine on a
+home network and not on shared wifi.
+
 ## Analysing a company
 
 ```bash
@@ -210,6 +226,7 @@ Layout:
 
 ```
 stocklab/
+  web/         local Starlette app: pages, JSON API, templates, static
   data/        caching, rate-limited HTTP, SEC/Yahoo/FRED providers, universe
   analysis/    metrics, technicals, risk, market regime
   valuation/   wacc, dcf, reverse_dcf, epv, residual_income, ddm, graham,
