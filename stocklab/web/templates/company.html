@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ symbol }} &middot; stocklab{% endblock %}
+{% block body %}
+
+{% if company and company.error %}
+  <div class="page-head"><div><h1>{{ symbol }}</h1></div></div>
+  <div class="empty"><p>{{ company.error }}</p></div>
+{% elif company %}
+{% set v = company.valuation %}
+{% set e = company.entry %}
+{% set k = company.metrics %}
+{% set t = company.technicals %}
+
+<div class="page-head">
+  <div>
+    <h1>{{ company.symbol }} &nbsp;<span class="muted" style="font-weight:400;font-size:19px">{{ company.name }}</span></h1>
+    <div class="sub">
+      {{ company.sector }} &middot; {{ company.industry }} &middot;
+      {{ company.years_of_data | plain(0) }} years of filings
+      {% if company.is_financial %}
+        &middot; <span class="badge info">financial &mdash; FCFF models suppressed</span>
+      {% elif company.is_reit %}
+        &middot; <span class="badge info">REIT &mdash; valued on FFO</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="stat" style="text-align:right">
+      <span class="label">Price</span>
+      <span class="value">{{ company.price | price }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Fair value (blended)', v.fair_value | price,
+              (v.low | price) ~ ' to ' ~ (v.high | price)) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Margin of safety', v.margin_of_safety | pct(1, true),
+              'model spread ' ~ (v.dispersion | pct(0)),
+              v.margin_of_safety | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Expected return at this price', v.implied_return | pct(2),
+              'risk-free ' ~ (v.risk_free | pct(2))) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Equity premium offered', v.implied_erp | pct(2, true),
+              'needs no ERP assumption', v.implied_erp | signclass) }}
+    <div style="margin-top:7px">
+      <span class="badge {{ v.confidence | confclass }}">
+        <span class="ico">&#9679;</span>{{ v.confidence }} confidence</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-bottom:14px">
+  <div class="card span-2">
+    <h2>Price &middot; 5 years, weekly, dividend-adjusted</h2>
+    {% if company.series and company.series.values %}
+      <div data-series='{{ company.series | tojson }}' data-height="190"></div>
+    {% else %}
+      <p class="dim">No price history available.</p>
+    {% endif %}
+    <div class="grid cols-4" style="margin-top:10px">
+      <div class="stat"><span class="label">vs 200-day</span>
+        <span class="value sm {{ t.dist_sma200 | signclass }}">{{ t.dist_sma200 | pct(1, true) }}</span></div>
+      <div class="stat"><span class="label">From 52wk high</span>
+        <span class="value sm {{ t.pct_from_52w_high | signclass }}">{{ t.pct_from_52w_high | pct(1, true) }}</span></div>
+      <div class="stat"><span class="label">12-1 momentum</span>
+        <span class="value sm {{ t.momentum_12_1 | signclass }}">{{ t.momentum_12_1 | pct(1, true) }}</span></div>
+      <div class="stat"><span class="label">Realised vol (3m)</span>
+        <span class="value sm">{{ t.vol63 | pct(1) }}</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-bottom:14px">
+  <div class="card">
+    <h2>Valuation models</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="wrap">Model</th><th class="num">Value</th><th class="num">Upside</th>
+          <th class="num">Weight</th>
+        </tr></thead>
+        <tbody>
+        {% for model in v.models %}
+          <tr{% if not model.applicable %} class="muted"{% endif %}>
+            <td class="wrap">
+              {{ model.name }}
+              <br><span class="dim">{{ model.rationale }}</span>
+            </td>
+            <td class="num">{{ model.value | price }}</td>
+            <td class="num {{ model.upside | signclass }}">{{ model.upside | pct(1, true) }}</td>
+            <td class="num">{% if model.applicable %}{{ model.weight | pct(0) }}{% else %}n/a{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Cost of capital &amp; scenarios</h2>
+    <dl class="kv">
+      <dt>WACC</dt><dd>{{ v.wacc | pct(2) }}</dd>
+      <dt>Cost of equity</dt><dd>{{ v.cost_of_equity | pct(2) }}</dd>
+      <dt>Beta (Blume-adjusted)</dt><dd>{{ v.beta | plain(2) }}</dd>
+      <dt>Synthetic credit rating</dt><dd>{{ v.rating }}</dd>
+    </dl>
+    {% if v.scenarios %}
+    <div class="table-wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th>Scenario</th><th class="num">Growth</th>
+          <th class="num">Margin</th><th class="num">WACC</th>
+          <th class="num">Value</th><th class="num">Terminal</th></tr></thead>
+        <tbody>
+        {% for row in v.scenarios %}
+          <tr>
+            <td>{{ row.scenario }}</td>
+            <td class="num">{{ row.growth_initial | pct(1) }}</td>
+            <td class="num">{{ row.margin_target | pct(1) }}</td>
+            <td class="num">{{ row.wacc | pct(2) }}</td>
+            <td class="num">{{ row.value_per_share | price }}</td>
+            <td class="num">{{ row.terminal_share | pct(0) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="dim" style="margin:8px 0 0">Scenarios move growth, margin and the
+      discount rate together, because the world where growth disappoints is also
+      the world where margins compress.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if v.bands %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Multiples versus the company's own history &middot; point-in-time</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Multiple</th><th class="num">Now</th><th class="num">p10</th>
+        <th class="num">Median</th><th class="num">p90</th>
+        <th style="min-width:160px">Position in own range</th>
+        <th class="num">Percentile</th><th class="num">At median</th><th>Read</th>
+      </tr></thead>
+      <tbody>
+      {% for band in v.bands %}
+        <tr>
+          <td>{{ band.label }}</td>
+          <td class="num">{{ band.current | ratio }}</td>
+          <td class="num muted">{{ band.p10 | ratio }}</td>
+          <td class="num">{{ band.median | ratio }}</td>
+          <td class="num muted">{{ band.p90 | ratio }}</td>
+          <td>
+            <div class="band" data-band='{{ band | tojson }}'>
+              <span class="range"></span><span class="iqr"></span>
+              <span class="median"></span><span class="now"></span>
+            </div>
+          </td>
+          <td class="num">{{ band.percentile | pct(0) }}</td>
+          <td class="num">{{ band.implied | price }}</td>
+          <td class="dim">{{ band.read }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">
+    Orange marker is today; grey line the median; shaded span the interquartile
+    range. Each trailing figure is dated to when it was actually filed, not when
+    the period ended.</p>
+</div>
+{% endif %}
+
+<div class="grid cols-3" style="margin-bottom:14px">
+  <div class="card">
+    <h2>Quality</h2>
+    <dl class="kv">
+      <dt>Gross margin</dt><dd>{{ k.gross_margin | pct }}</dd>
+      <dt>Operating margin</dt><dd>{{ k.operating_margin | pct }}</dd>
+      <dt>FCF margin</dt><dd>{{ k.fcf_margin | pct }}</dd>
+      <dt>ROIC</dt><dd>{{ k.roic | pct }}</dd>
+      <dt>ROIC 5-year average</dt><dd>{{ k.roic_5y_avg | pct }}</dd>
+      <dt>ROE</dt><dd>{{ k.roe | pct }}</dd>
+      <div class="sep"></div>
+      <dt>Cash conversion (CFO/NI)</dt><dd>{{ k.cash_conversion | plain(2) }}</dd>
+      <dt>Piotroski F-Score</dt><dd>{{ k.piotroski_f | plain(0) }} / 9</dd>
+      <dt>Altman Z</dt>
+      <dd>{{ k.altman_z | plain(2) }}
+        {% if company.altman_zone %}
+          <span class="badge {{ company.altman_zone | zoneclass }}">{{ company.altman_zone }}</span>
+        {% endif %}</dd>
+      <dt>Beneish M</dt><dd>{{ k.beneish_m | plain(2) }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Growth</h2>
+    <dl class="kv">
+      <dt>Revenue CAGR 3y</dt><dd class="{{ k.revenue_cagr_3y | signclass }}">{{ k.revenue_cagr_3y | pct(1, true) }}</dd>
+      <dt>Revenue CAGR 5y</dt><dd class="{{ k.revenue_cagr_5y | signclass }}">{{ k.revenue_cagr_5y | pct(1, true) }}</dd>
+      <dt>Revenue trend r&sup2; <span class="dim">(durability)</span></dt><dd>{{ k.revenue_trend_r2 | plain(2) }}</dd>
+      <dt>EPS CAGR 3y</dt><dd class="{{ k.eps_cagr_3y | signclass }}">{{ k.eps_cagr_3y | pct(1, true) }}</dd>
+      <dt>FCF CAGR 5y</dt><dd class="{{ k.fcf_cagr_5y | signclass }}">{{ k.fcf_cagr_5y | pct(1, true) }}</dd>
+      <div class="sep"></div>
+      <dt>Share count CAGR 5y</dt><dd class="{{ (k.share_count_cagr_5y * -1 if k.share_count_cagr_5y is not none else none) | signclass }}">{{ k.share_count_cagr_5y | pct(2, true) }}</dd>
+      <dt>Dividend yield</dt><dd>{{ k.dividend_yield | pct(2) }}</dd>
+      <dt>Buyback yield</dt><dd>{{ k.buyback_yield | pct(2) }}</dd>
+      <dt>Shareholder yield</dt><dd>{{ k.shareholder_yield | pct(2) }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Size &amp; balance sheet</h2>
+    <dl class="kv">
+      <dt>Market cap</dt><dd>{{ k.market_cap | money }}</dd>
+      <dt>Enterprise value</dt><dd>{{ k.enterprise_value | money }}</dd>
+      <dt>Net debt</dt><dd>{{ k.net_debt | money }}</dd>
+      <dt>Net debt / EBITDA</dt><dd>{{ k.net_debt_to_ebitda | ratio }}</dd>
+      <dt>Interest coverage</dt><dd>{{ k.interest_coverage | ratio }}</dd>
+      <dt>Current ratio</dt><dd>{{ k.current_ratio | plain(2) }}</dd>
+      <div class="sep"></div>
+      <dt>P/E</dt><dd>{{ k.pe | ratio }}</dd>
+      <dt>P/E on 5y average earnings</dt><dd>{{ k.pe_5y_avg_earnings | ratio }}</dd>
+      <dt>EV/EBIT</dt><dd>{{ k.ev_ebit | ratio }}</dd>
+      <dt>FCF yield</dt><dd>{{ k.fcf_yield | pct(2) }}</dd>
+      <dt>Share count source</dt><dd class="dim">{{ company.share_count_basis }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-bottom:14px">
+  <div class="card">
+    <h2>Entry plan</h2>
+    <div class="row" style="margin-bottom:10px">
+      <div class="stat" style="flex:1">
+        <span class="label">Composite entry score</span>
+        <span class="value">{{ e.score | plain(0) }}<span class="muted" style="font-size:16px"> / 100</span></span>
+        <span class="note">{{ e.verdict }}</span>
+      </div>
+    </div>
+    <div class="meter" data-fill="{{ e.score or 0 }}" style="margin-bottom:12px"><span></span></div>
+    {% for name, score in e.components.items() %}
+      {{ m.bar(name | title, score, score | plain(0), score or 0) }}
+    {% endfor %}
+    <dl class="kv" style="margin-top:12px">
+      <dt>Best setup</dt><dd>{{ e.best_setup or DASH }}</dd>
+      <dt>Stop ({{ e.stop_method }})</dt><dd>{{ e.stop | price }}</dd>
+      <dt>Risk per share</dt><dd>{{ e.risk_per_share | price }} ({{ e.risk_pct | pct }})</dd>
+      <dt>Position size</dt>
+      <dd>{{ e.size.shares | plain(0) }} sh &middot; {{ e.size.value | money }}
+        ({{ e.size.weight | pct }})</dd>
+      <dt>Capital at risk</dt>
+      <dd>{{ e.size.risk_dollars | price }} ({{ e.size.risk_pct_of_capital | pct(2) }})</dd>
+      <dt>1R / 2R / 3R</dt>
+      <dd>{% for label, target in e.targets.items() %}{{ target | price }}{% if not loop.last %} / {% endif %}{% endfor %}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Setups</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Setup</th><th class="num">Confidence</th>
+          <th class="wrap">Unmet conditions</th></tr></thead>
+        <tbody>
+        {% for setup in e.setups %}
+          <tr>
+            <td>{{ setup.name }}
+              {% if setup.triggered %}
+                <span class="badge good"><span class="ico">&#10003;</span>triggered</span>
+              {% endif %}</td>
+            <td class="num">{{ setup.confidence | plain(0) }}</td>
+            <td class="wrap dim">{{ setup.failed | join('; ') or DASH }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if e.ladder %}
+    <h2 style="margin-top:14px">Staged entry ladder</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tranche</th><th class="num">Limit</th>
+          <th class="num">Allocation</th><th class="num">From spot</th>
+          <th class="num">R to stop</th></tr></thead>
+        <tbody>
+        {% for row in e.ladder %}
+          <tr>
+            <td>{{ row.tranche }}</td>
+            <td class="num">{{ row.limit_price | price }}</td>
+            <td class="num">{{ row.allocation | pct(0) }}</td>
+            <td class="num">{{ row.distance_from_spot | pct(1, true) }}</td>
+            <td class="num">{{ row.r_to_stop | plain(2) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{{ m.notes(e.invalidation, 'Invalidation \u2014 exit if any of these occur', 'danger') }}
+{{ m.notes(v.notes[:6], 'Valuation caveats') }}
+{{ m.notes(company.data_notes, 'Data notes', 'info') }}
+{% endif %}
+{% endblock %}

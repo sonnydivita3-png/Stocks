@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Performance &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Performance</h1>
+    {% if performance and not performance.empty %}
+    <div class="sub">{{ performance.start }} to {{ performance.end }} &middot;
+      benchmark {{ performance.benchmark }}</div>
+    {% endif %}</div>
+</div>
+
+{% if performance and performance.empty %}
+  <div class="empty"><p>No transactions recorded, so there is nothing to measure.</p></div>
+{% elif performance %}
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Time-weighted (annualised)', performance.twr_annualized | pct(1, true),
+              'measures the strategy', performance.twr_annualized | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Money-weighted (IRR)', performance.mwr | pct(1, true),
+              'measures your timing', performance.mwr | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Timing effect', performance.behaviour_gap | pct(1, true),
+              'MWR minus TWR', performance.behaviour_gap | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat(performance.benchmark ~ ' total return',
+              performance.benchmark_return | pct(1, true), '',
+              performance.benchmark_return | signclass) }}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <h2>Growth of the portfolio, flows removed</h2>
+  {% if performance.series and performance.series.values %}
+    <div data-series='{{ performance.series | tojson }}' data-height="200"></div>
+    <p class="dim" style="margin:8px 0 0">Chained sub-period returns: each
+      deposit is subtracted before measuring, so contribution timing does not
+      show up as performance.</p>
+  {% else %}
+    <p class="dim">Not enough history to chart.</p>
+  {% endif %}
+</div>
+
+<div class="grid cols-3" style="margin-bottom:14px">
+  <div class="card">
+    <h2>Capital</h2>
+    <dl class="kv">
+      <dt>Beginning value</dt><dd>{{ performance.beginning_value | money }}</dd>
+      <dt>Ending value</dt><dd>{{ performance.ending_value | money }}</dd>
+      <dt>Net contributions</dt><dd>{{ performance.net_contributions | money }}</dd>
+      <dt>Gain</dt><dd class="{{ performance.gain | signclass }}">{{ performance.gain | money }}</dd>
+      <dt>Time-weighted (total)</dt>
+      <dd class="{{ performance.twr | signclass }}">{{ performance.twr | pct(1, true) }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Risk</h2>
+    <dl class="kv">
+      <dt>Volatility</dt><dd>{{ performance.risk.volatility | pct }}</dd>
+      <dt>Sharpe</dt><dd>{{ performance.risk.sharpe | plain(2) }}</dd>
+      <dt>Sortino</dt><dd>{{ performance.risk.sortino | plain(2) }}</dd>
+      <dt>Max drawdown</dt>
+      <dd class="{{ performance.risk.max_drawdown | signclass }}">{{ performance.risk.max_drawdown | pct(1, true) }}</dd>
+      <dt>Calmar</dt><dd>{{ performance.risk.calmar | plain(2) }}</dd>
+      <dt>Time underwater</dt><dd>{{ performance.risk.time_underwater | pct(0) }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Versus {{ performance.benchmark }}</h2>
+    <dl class="kv">
+      <dt>Beta</dt><dd>{{ performance.vs_benchmark.beta | plain(2) }}</dd>
+      <dt>Alpha (annual)</dt>
+      <dd class="{{ performance.vs_benchmark.alpha_annual | signclass }}">{{ performance.vs_benchmark.alpha_annual | pct(1, true) }}</dd>
+      <dt>Correlation</dt><dd>{{ performance.vs_benchmark.correlation | plain(2) }}</dd>
+      <dt>R&sup2;</dt><dd>{{ performance.vs_benchmark.r_squared | plain(2) }}</dd>
+      <dt>Tracking error</dt><dd>{{ performance.vs_benchmark.tracking_error | pct }}</dd>
+      <dt>Information ratio</dt><dd>{{ performance.vs_benchmark.information_ratio | plain(2) }}</dd>
+    </dl>
+  </div>
+</div>
+
+{% if performance.contribution %}
+<div class="card">
+  <h2>Contribution to gain</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr><th>Symbol</th><th class="num">Realised</th>
+        <th class="num">Unrealised</th><th class="num">Total gain</th>
+        <th class="num">Share of gain</th><th class="num">Return on cost</th></tr></thead>
+      <tbody>
+      {% for row in performance.contribution %}
+        <tr>
+          <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+          <td class="num {{ row.realized | signclass }}">{{ row.realized | money }}</td>
+          <td class="num {{ row.unrealized | signclass }}">{{ row.unrealized | money }}</td>
+          <td class="num {{ row.total_gain | signclass }}" data-sort="{{ row.total_gain or 0 }}">{{ row.total_gain | money }}</td>
+          <td class="num">{{ row.share_of_gain | pct(1) }}</td>
+          <td class="num {{ row.return_on_cost | signclass }}">{{ row.return_on_cost | pct(1, true) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">Most portfolios find a handful of
+    positions produced nearly all of the gain. That is the empirical norm, not a
+    mistake.</p>
+</div>
+{% endif %}
+
+{{ m.notes(performance.notes, 'Notes') }}
+{% endif %}
+{% endblock %}

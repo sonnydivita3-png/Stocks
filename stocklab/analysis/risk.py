@@ -72,6 +72,11 @@ def return_stats(returns: pd.Series, risk_free: float = 0.0,
         "var_normal": float(-(r.mean() + r.std(ddof=1) * _z(cfg.var_confidence))),
     }
     stats["recovery_factor"] = safe_div(total, abs(mdd)) if is_num(mdd) and mdd < 0 else NAN
+    # Share of the period spent below a previous peak. Often more
+    # decision-relevant than the depth: a 25% drawdown that recovers in four
+    # months is tolerable, the same 25% taking five years is what makes people
+    # abandon a strategy at the worst moment.
+    stats["time_underwater"] = float((equity < equity.cummax() * (1 - 1e-9)).mean())
     return stats
 
 

@@ -1,0 +1,30 @@
+{% macro stat(label, value, note='', cls='') %}
+<div class="stat">
+  <span class="label">{{ label }}</span>
+  <span class="value {{ cls }}">{{ value }}</span>
+  {% if note %}<span class="note">{{ note }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro notes(items, title='Caveats', kind='') %}
+{% if items %}
+<div class="notes {{ kind }}">
+  <h3>{{ title }}</h3>
+  <ul>{% for item in items %}<li>{{ item }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro bar(label, value, display, pct, cls='') %}
+<div class="barrow">
+  <span class="lab">{{ label }}</span>
+  <span class="val">{{ display }}</span>
+  <span class="track meter {{ cls }}" data-fill="{{ pct }}"><span></span></span>
+</div>
+{% endmacro %}
+
+{# A number that is coloured must also carry its sign, so colour is never the
+   only channel communicating direction. #}
+{% macro signed(value, formatted) %}
+<span class="{{ value | signclass }}">{{ formatted }}</span>
+{% endmacro %}

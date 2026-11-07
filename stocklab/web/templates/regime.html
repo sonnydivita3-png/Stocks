@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Regime &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Market regime</h1>
+    <div class="sub">A sizing input, not an in/out signal.</div></div>
+</div>
+
+{% if regime %}
+<div class="grid cols-3" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Regime', regime.label | title,
+              'composite ' ~ (regime.score | plain(1)) ~ ' / 100') }}
+    <div class="meter {{ regime.label | regimeclass }}" data-fill="{{ regime.score or 0 }}"
+         style="margin-top:9px"><span></span></div>
+  </div>
+  <div class="card">
+    {{ m.stat('Exposure multiplier', (regime.exposure | plain(2)) ~ 'x',
+              'bounded 0.60 to 1.10') }}
+  </div>
+  <div class="card">
+    <h2>Components</h2>
+    {% for component in regime.components %}
+      {{ m.bar(component.name | title, component.score,
+               (component.score | plain(0)) ~ ' @ ' ~ (component.weight | pct(0)),
+               component.score or 0) }}
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <h2>Readings</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th class="wrap">Measure</th><th class="num">Value</th></tr></thead>
+      <tbody>
+      {% for label, value, kind in regime.readings %}
+        <tr>
+          <td class="wrap">{{ label }}</td>
+          <td class="num">
+            {%- if kind == 'pct' -%}{{ value | pct(1, true) }}
+            {%- elif kind == 'pp' -%}{{ value | plain(2) }}%
+            {%- else -%}{{ value | plain(1) }}{%- endif -%}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ m.notes(regime.caveats, 'How to use this', 'info') }}
+{% endif %}
+{% endblock %}

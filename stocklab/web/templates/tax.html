@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Tax &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Tax &amp; harvesting</h1>
+    <div class="sub">Federal estimate only &mdash; state tax is not modelled.
+      Not tax advice; reconcile against broker records before filing.</div></div>
+  <form method="get" class="row">
+    <label class="dim">Year
+      <input type="number" name="year" value="{{ tax.year if tax else '' }}"
+             min="2000" max="2100" style="width:92px"></label>
+    <label class="dim">Short-rate
+      <input type="number" name="short_rate" step="0.01" min="0" max="0.6"
+             value="{{ tax.rates.short if tax else 0.24 }}" style="width:82px"></label>
+    <label class="dim">Long-rate
+      <input type="number" name="long_rate" step="0.01" min="0" max="0.4"
+             value="{{ tax.rates.long if tax else 0.15 }}" style="width:82px"></label>
+    <button type="submit">Recalculate</button>
+  </form>
+</div>
+
+{% if tax %}
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Short-term', tax.short_term | money, 'ordinary rates',
+              tax.short_term | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Long-term', tax.long_term | money, 'held over 12 months',
+              tax.long_term | signclass) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Wash sales disallowed', tax.disallowed | money,
+              'added back to gains') }}
+  </div>
+  <div class="card">
+    {{ m.stat('Estimated federal tax', tax.estimated_tax | money,
+              'carry-forward ' ~ (tax.carryforward | money)) }}
+  </div>
+</div>
+
+{% if tax.disposals %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Realised disposals {{ tax.year }}</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr><th>Symbol</th><th>Account</th><th>Opened</th><th>Sold</th>
+        <th class="num">Qty</th><th class="num">Proceeds</th><th class="num">Basis</th>
+        <th class="num">Gain</th><th>Term</th><th class="num">Disallowed</th>
+        <th class="num">Taxable</th></tr></thead>
+      <tbody>
+      {% for row in tax.disposals %}
+        <tr>
+          <td class="sym">{{ row.symbol }}</td>
+          <td>{{ row.account }}</td>
+          <td>{{ row.open_date }}</td>
+          <td>{{ row.sell_date }}</td>
+          <td class="num">{{ row.quantity | plain }}</td>
+          <td class="num">{{ row.proceeds | money }}</td>
+          <td class="num">{{ row.cost_basis | money }}</td>
+          <td class="num {{ row.gain | signclass }}" data-sort="{{ row.gain or 0 }}">{{ row.gain | money }}</td>
+          <td>{% if row.term == 'long' %}<span class="badge good">long</span>
+              {% else %}<span class="badge warning">short</span>{% endif %}</td>
+          <td class="num">{{ row.wash_sale_disallowed | money }}</td>
+          <td class="num {{ row.taxable_gain | signclass }}">{{ row.taxable_gain | money }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% set wash = tax.disposals | selectattr('notes') | list %}
+  {% if wash %}
+  <div class="notes danger" style="margin-bottom:0">
+    <h3>Wash sales and adjustments</h3>
+    <ul>{% for row in wash %}
+      <li><strong>{{ row.symbol }}</strong> sold {{ row.sell_date }}: {{ row.notes }}</li>
+    {% endfor %}</ul>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:14px">
+  <h2>Harvest candidates &middot; taxable accounts only</h2>
+  {% if tax.harvest %}
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr><th>Symbol</th><th>Account</th><th class="num">Qty</th>
+        <th class="num">Basis</th><th class="num">Value</th><th class="num">Loss</th>
+        <th>Term</th><th class="num">Est. saving</th><th>Wash risk</th>
+        <th>Clear after</th></tr></thead>
+      <tbody>
+      {% for row in tax.harvest %}
+        <tr>
+          <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+          <td>{{ row.account }}</td>
+          <td class="num">{{ row.quantity | plain }}</td>
+          <td class="num">{{ row.cost_basis | money }}</td>
+          <td class="num">{{ row.value | money }}</td>
+          <td class="num down" data-sort="{{ row.loss or 0 }}">{{ row.loss | money }}</td>
+          <td>{{ row.term }}</td>
+          <td class="num">{{ row.saving | price }}</td>
+          <td>{% if row.wash_risk %}
+                <span class="badge critical"><span class="ico">&#9888;</span>blocked</span>
+              {% else %}<span class="badge good"><span class="ico">&#10003;</span>clear</span>{% endif %}</td>
+          <td class="dim">{{ row.blocked_until or DASH }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">Harvesting resets basis lower, so it
+    defers tax rather than eliminating it. The benefit is the time value of the
+    deferral plus any rate difference, not the headline saving.</p>
+  {% else %}
+  <div class="empty">
+    <p>No harvestable losses above the threshold.</p>
+    <p class="dim">Losses inside an IRA, Roth or 401(k) are never candidates:
+      they are not deductible, and basis is irrelevant to how withdrawals are taxed.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if tax.approaching_long_term %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Approaching long-term treatment</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr><th>Symbol</th><th>Account</th><th>Opened</th>
+        <th class="num">Qty</th><th class="num">Unrealised gain</th>
+        <th class="num">Days to long-term</th></tr></thead>
+      <tbody>
+      {% for row in tax.approaching_long_term %}
+        <tr>
+          <td class="sym">{{ row.symbol }}</td>
+          <td>{{ row.account }}</td>
+          <td>{{ row.open_date }}</td>
+          <td class="num">{{ row.quantity | plain }}</td>
+          <td class="num {{ row.unrealized_gain | signclass }}">{{ row.unrealized_gain | money }}</td>
+          <td class="num">{{ row.days_to_long_term | plain(0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">The boundary is <em>more than</em> 12
+    months: at exactly 365 days a gain is still short-term.</p>
+</div>
+{% endif %}
+
+{{ m.notes(tax.notes, 'Notes') }}
+{% endif %}
+{% endblock %}

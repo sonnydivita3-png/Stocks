@@ -661,6 +661,46 @@ def backtest(symbols: str, strategy: str, top_n: int, lookback: int,
 
 
 @main.command()
+@click.option("--host", default="127.0.0.1", show_default=True,
+              help="Bind address. Use 0.0.0.0 to reach it from another device.")
+@click.option("--port", default=8787, show_default=True)
+@click.option("--open-browser/--no-open-browser", default=True, show_default=True)
+@click.option("--reload", is_flag=True, help="Auto-reload on code changes (development).")
+@click.option("--debug", is_flag=True, help="Show tracebacks in the browser.")
+def serve(host: str, port: int, open_browser: bool, reload: bool, debug: bool) -> None:
+    """Run the web app against your local data.
+
+    Reads the real portfolio database on every request, so a trade recorded a
+    minute ago appears on the next page load.
+    """
+    try:
+        import uvicorn  # noqa: F401
+    except ImportError:
+        ui.console.print(
+            "[red]uvicorn is not installed.[/red] Install the web extras:\n"
+            "  [bold]pip install 'stocklab[web]'[/bold]")
+        raise SystemExit(1)
+
+    url = f"http://{'localhost' if host in ('127.0.0.1', '0.0.0.0') else host}:{port}"
+    ui.console.print(ui.header("stocklab web", f"serving at {url}"))
+    if host == "0.0.0.0":
+        ui.console.print(
+            "[yellow]Bound to 0.0.0.0, so anything on this network can reach it. "
+            "The app has no authentication and shows your real holdings \u2014 fine "
+            "on a trusted home network to use it from a phone, not on shared "
+            "wifi.[/yellow]")
+    ui.console.print("[dim]First load of a page is slow while data is fetched; "
+                     "everything is cached afterwards. Ctrl-C to stop.[/dim]\n")
+    if open_browser and host != "0.0.0.0":
+        import threading
+        import webbrowser
+        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+
+    from .web.app import serve as run_server
+    run_server(host=host, port=port, reload=reload, debug=debug)
+
+
+@main.command()
 @click.option("--purge", is_flag=True, help="Delete every cached entry.")
 @click.option("--older-than-days", type=float, default=None,
               help="Delete entries older than this many days.")

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Portfolio &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Portfolio</h1>
+    <div class="sub">Positions by account, with tax-lot terms. Recomputed from the
+      transaction log on every load.</div></div>
+</div>
+
+{% if portfolio and portfolio.empty %}
+<div class="empty">
+  <p>No open positions.</p>
+  <p class="dim">
+    <code>stocklab account add "Brokerage" --type taxable --basis-method hifo</code><br>
+    <code>stocklab txn add --account "Brokerage" --date 2024-03-01 --type buy --symbol AAPL --quantity 100 --price 170.50</code>
+  </p>
+</div>
+{% elif portfolio %}
+
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">{{ m.stat('Total', portfolio.totals.total | money) }}</div>
+  <div class="card">{{ m.stat('Invested', portfolio.totals.invested | money) }}</div>
+  <div class="card">{{ m.stat('Cash', portfolio.totals.cash | money) }}</div>
+  <div class="card">{{ m.stat('Unrealised gain', portfolio.totals.gain | money, '',
+                              portfolio.totals.gain | signclass) }}</div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <h2>Accounts</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr><th>Account</th><th>Type</th><th>Tax treatment</th>
+        <th>Cost basis</th><th class="num">Cash</th><th class="num">Positions</th></tr></thead>
+      <tbody>
+      {% for account in portfolio.accounts %}
+        <tr>
+          <td class="sym">{{ account.name }}</td>
+          <td>{{ account.type }}</td>
+          <td>{{ account.tax }}
+            {% if account.tax != 'taxable' %}
+              <span class="badge info">losses not deductible</span>
+            {% endif %}</td>
+          <td>{{ account.basis_method }}</td>
+          <td class="num {{ account.cash | signclass }}">{{ account.cash | price }}</td>
+          <td class="num">{{ account.positions }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Positions by account</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr>
+        <th>Symbol</th><th>Account</th><th class="num">Quantity</th>
+        <th class="num">Cost / share</th><th class="num">Price</th>
+        <th class="num">Cost basis</th><th class="num">Value</th>
+        <th class="num">Gain</th><th class="num">Gain %</th>
+        <th class="num">Long-term sh</th><th class="num">Short-term sh</th>
+      </tr></thead>
+      <tbody>
+      {% for row in portfolio.positions %}
+        <tr>
+          <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+          <td>{{ row.account }}{% if row.sheltered %}
+            <span class="badge info">sheltered</span>{% endif %}</td>
+          <td class="num" data-sort="{{ row.quantity or 0 }}">{{ row.quantity | plain }}</td>
+          <td class="num">{{ row.cost_per_share | price }}</td>
+          <td class="num">{{ row.price | price }}</td>
+          <td class="num" data-sort="{{ row.cost_basis or 0 }}">{{ row.cost_basis | money }}</td>
+          <td class="num" data-sort="{{ row.value or 0 }}">{{ row.value | money }}</td>
+          <td class="num {{ row.gain | signclass }}" data-sort="{{ row.gain or 0 }}">{{ row.gain | money }}</td>
+          <td class="num {{ row.gain_pct | signclass }}" data-sort="{{ row.gain_pct or 0 }}">{{ row.gain_pct | pct(1, true) }}</td>
+          <td class="num">{{ row.long_term | plain(0) }}</td>
+          <td class="num">{{ row.short_term | plain(0) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">
+    Cost basis is selected per account by its chosen method. FIFO is the broker
+    default and usually the worst choice in an appreciated position; HIFO
+    minimises the realised gain.</p>
+</div>
+
+{{ m.notes(portfolio.warnings, 'Ledger warnings') }}
+{% endif %}
+{% endblock %}

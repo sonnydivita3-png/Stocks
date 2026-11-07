@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}stocklab &middot; dashboard{% endblock %}
+{% block body %}
+
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="sub">Market context, your holdings, and anything on the watchlist.</div>
+  </div>
+</div>
+
+{% if regime %}
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Market regime', regime.label | title,
+              'composite ' ~ (regime.score | plain(0)) ~ '/100') }}
+    <div class="meter {{ regime.label | regimeclass }}" data-fill="{{ regime.score or 0 }}"
+         style="margin-top:9px"><span></span></div>
+  </div>
+  <div class="card">
+    {{ m.stat('Exposure multiplier', (regime.exposure | plain(2)) ~ 'x',
+              'bounded 0.60-1.10 by design') }}
+  </div>
+  <div class="card">
+    {{ m.stat('High-yield spread',
+              (regime.readings | selectattr('0', 'equalto', 'High-yield spread')
+                               | map(attribute='1') | first | plain(2)) ~ '%',
+              'credit leads equity') }}
+  </div>
+  <div class="card">
+    {{ m.stat('VIX', regime.readings | selectattr('0', 'equalto', 'VIX')
+                                     | map(attribute='1') | first | plain(1)) }}
+  </div>
+</div>
+{% elif regime_error %}
+<div class="notes"><h3>Market regime unavailable</h3><ul><li>{{ regime_error }}</li></ul></div>
+{% endif %}
+
+{% if portfolio and not portfolio.empty %}
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">{{ m.stat('Portfolio value', portfolio.totals.total | money) }}</div>
+  <div class="card">{{ m.stat('Cost basis', portfolio.totals.cost_basis | money) }}</div>
+  <div class="card">
+    {{ m.stat('Unrealised gain',
+              (portfolio.totals.gain | money),
+              '', portfolio.totals.gain | signclass) }}
+  </div>
+  <div class="card">{{ m.stat('Cash', portfolio.totals.cash | money) }}</div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <h2>Holdings &middot; all accounts combined</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr>
+        <th>Symbol</th><th class="num">Weight</th><th class="num">Quantity</th>
+        <th class="num">Price</th><th class="num">Value</th>
+        <th class="num">Cost basis</th><th class="num">Gain</th><th class="num">Gain %</th>
+      </tr></thead>
+      <tbody>
+      {% for row in portfolio.combined %}
+        <tr>
+          <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+          <td class="num" data-sort="{{ row.weight or 0 }}">{{ row.weight | pct }}</td>
+          <td class="num" data-sort="{{ row.quantity or 0 }}">{{ row.quantity | plain }}</td>
+          <td class="num" data-sort="{{ row.price or 0 }}">{{ row.price | price }}</td>
+          <td class="num" data-sort="{{ row.value or 0 }}">{{ row.value | money }}</td>
+          <td class="num" data-sort="{{ row.cost_basis or 0 }}">{{ row.cost_basis | money }}</td>
+          <td class="num {{ row.gain | signclass }}" data-sort="{{ row.gain or 0 }}">
+            {{ row.gain | money }}</td>
+          <td class="num {{ row.gain_pct | signclass }}" data-sort="{{ row.gain_pct or 0 }}">
+            {{ row.gain_pct | pct(1, true) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot><tr>
+        <td>Total</td><td class="num"></td><td class="num"></td><td class="num"></td>
+        <td class="num">{{ portfolio.totals.invested | money }}</td>
+        <td class="num">{{ portfolio.totals.cost_basis | money }}</td>
+        <td class="num {{ portfolio.totals.gain | signclass }}">
+          {{ portfolio.totals.gain | money }}</td>
+        <td class="num"></td>
+      </tr></tfoot>
+    </table>
+  </div>
+  <p class="dim" style="margin:9px 0 0">
+    <a href="/portfolio">Per-account breakdown and tax lots &rarr;</a>
+  </p>
+</div>
+{% else %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Portfolio</h2>
+  <div class="empty">
+    <p>No positions recorded yet.</p>
+    <p class="dim">Add an account and some trades from the command line:<br>
+      <code>stocklab account add "Brokerage" --type taxable --basis-method hifo</code><br>
+      <code>stocklab txn import trades.csv --account "Brokerage"</code></p>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid cols-2">
+  {% if regime %}
+  <div class="card">
+    <h2>Regime components</h2>
+    {% for component in regime.components %}
+      {{ m.bar(component.name | title,
+               component.score,
+               (component.score | plain(0)) ~ ' / ' ~ (component.weight | pct(0)),
+               component.score or 0) }}
+    {% endfor %}
+    <p class="dim" style="margin:10px 0 0">
+      <a href="/regime">Full regime detail &rarr;</a></p>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Watchlist</h2>
+    {% if watchlist and not watchlist.empty %}
+    <div class="table-wrap">
+      <table data-sortable>
+        <thead><tr>
+          <th>Symbol</th><th class="num">Price</th><th class="num">Target</th>
+          <th class="num">vs target</th><th class="wrap">Thesis</th>
+        </tr></thead>
+        <tbody>
+        {% for row in watchlist.rows %}
+          <tr>
+            <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+            <td class="num">{{ row.price | price }}</td>
+            <td class="num">{{ row.target_buy | price }}</td>
+            <td class="num {{ row.vs_target | signclass }}">
+              {{ row.vs_target | pct(1, true) }}</td>
+            <td class="wrap dim">{{ row.thesis }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <p>Nothing on the watchlist.</p>
+      <p class="dim"><code>stocklab watch add NVDA --target-buy 150 --thesis "..."</code></p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if portfolio and portfolio.warnings %}
+  {{ m.notes(portfolio.warnings, 'Ledger warnings') }}
+{% endif %}
+{% endblock %}

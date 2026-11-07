@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}stocklab{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">stock<span>lab</span></a>
+  <nav class="nav">
+    {% for href, label in nav %}
+      <a href="{{ href }}"
+         {% if request.url.path == href or (href != '/' and request.url.path.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <form action="/search" method="get" role="search">
+    <input type="search" name="symbol" placeholder="Ticker" aria-label="Analyse a ticker"
+           autocapitalize="characters" autocomplete="off" spellcheck="false">
+    <button type="submit" class="btn-primary">Analyse</button>
+  </form>
+  <form action="/refresh" method="post">
+    <button type="submit" title="Drop cached page data and recompute">Refresh</button>
+  </form>
+  <button class="theme-toggle" type="button" aria-label="Toggle theme">&#9728;</button>
+</header>
+
+<main>
+  {% if error %}
+    <div class="notes danger">
+      <h3>Could not build this page</h3>
+      <ul><li>{{ error }}</li></ul>
+      <p class="dim">Data sources are rate-limited and occasionally unavailable.
+        Try <a href="/refresh">refresh</a>; cached data is reused where possible.</p>
+    </div>
+  {% endif %}
+  {% block body %}{% endblock %}
+</main>
+
+<footer>
+  <div class="disclaim">
+    <strong>Not investment advice.</strong> Every figure here rests on stated
+    assumptions &mdash; see <code>docs/METHODOLOGY.md</code> for what each model
+    assumes and where it breaks. Fundamentals from SEC EDGAR XBRL, prices and
+    corporate actions from Yahoo, macro from FRED.
+    <br>Page built {{ generated_at }} &middot; data directory
+    <code>{{ data_dir }}</code> &middot;
+    <a href="/healthz">health</a>
+  </div>
+</footer>
+</body>
+</html>

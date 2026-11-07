@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Risk &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Risk</h1>
+    <div class="sub">Concentration, correlation and what a crisis would do.</div></div>
+</div>
+
+{% if risk and risk.empty %}
+  <div class="empty"><p>No open positions to analyse.</p></div>
+{% elif risk %}
+{% set c = risk.concentration %}
+<div class="grid cols-4" style="margin-bottom:14px">
+  <div class="card">
+    {{ m.stat('Positions', c.positions | plain(0),
+              'effective ' ~ (c.effective_holdings | plain(1))) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Largest position', c.largest_weight | pct,
+              'top 3 ' ~ (c.top_3_weight | pct)) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Portfolio beta', risk.beta | plain(2),
+              'volatility ' ~ (risk.volatility | pct)) }}
+  </div>
+  <div class="card">
+    {{ m.stat('Average correlation', risk.stats.average_pairwise_correlation | plain(2),
+              'diversification ratio ' ~ (risk.stats.diversification_ratio | plain(2))) }}
+  </div>
+</div>
+
+<div class="grid cols-2" style="margin-bottom:14px">
+  <div class="card">
+    <h2>Sector exposure</h2>
+    {% for row in risk.sectors %}
+      {{ m.bar(row.sector, row.weight, row.weight | pct, (row.weight or 0) * 100) }}
+    {% endfor %}
+    <p class="dim" style="margin:10px 0 0">Classification is SIC, not GICS &mdash;
+      coarse, and free.</p>
+  </div>
+  <div class="card">
+    <h2>Account exposure</h2>
+    {% for row in risk.accounts %}
+      {{ m.bar(row.account, row.weight, row.weight | pct, (row.weight or 0) * 100) }}
+    {% endfor %}
+  </div>
+</div>
+
+{% if risk.stress %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Stress scenarios &middot; beta-scaled historical drawdowns</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th class="wrap">Scenario</th><th class="num">Index move</th>
+        <th class="num">Portfolio move</th><th class="num">Change</th>
+        <th class="num">Resulting value</th></tr></thead>
+      <tbody>
+      {% for row in risk.stress %}
+        <tr>
+          <td class="wrap">{{ row.scenario }}</td>
+          <td class="num down">{{ row.index_move | pct(1, true) }}</td>
+          <td class="num down">{{ row.portfolio_move | pct(1, true) }}</td>
+          <td class="num down">{{ row.value_change | money }}</td>
+          <td class="num">{{ row.resulting_value | money }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{{ m.notes(risk.notes, 'What these numbers hide') }}
+{% endif %}
+{% endblock %}

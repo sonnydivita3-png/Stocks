@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Screens &middot; stocklab{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div><h1>Screens</h1>
+    <div class="sub">Each strategy ships with its published evidence and its
+      failure modes. A screen without them is a device for manufacturing confidence.</div></div>
+</div>
+
+<div class="chips" style="margin-bottom:16px">
+  {% for preset in presets %}
+    <a href="/screen/{{ preset.key }}"
+       {% if active == preset.key %}aria-current="true"{% endif %}
+       title="{{ preset.description }}">{{ preset.name }}</a>
+  {% endfor %}
+</div>
+
+{% if result and result.error %}
+  <div class="empty"><p>{{ result.error }}</p></div>
+{% elif result %}
+<div class="card" style="margin-bottom:14px">
+  <div class="row" style="margin-bottom:4px">
+    <h2 style="margin:0">{{ result.name }}</h2>
+    <span class="spacer"></span>
+    <span class="badge info">{{ result.passed }} of {{ result.universe_size }} passed</span>
+  </div>
+  <p class="dim" style="margin:4px 0 0">{{ result.description }}</p>
+  {% if result.evidence %}
+    <div class="notes info" style="margin-bottom:0">
+      <h3>Evidence</h3><ul><li>{{ result.evidence }}</li></ul>
+    </div>
+  {% endif %}
+</div>
+
+{% if result.rows %}
+<div class="card" style="margin-bottom:14px">
+  <h2>Results</h2>
+  <div class="table-wrap">
+    <table data-sortable>
+      <thead><tr>
+        <th>Symbol</th><th class="wrap">Name</th><th>Sector</th>
+        <th class="num">Market cap</th><th class="num">Score</th>
+        <th class="num">P/E</th><th class="num">EV/EBIT</th>
+        <th class="num">FCF yield</th><th class="num">ROIC</th>
+        <th class="num">Rev CAGR 5y</th><th class="num">Div yield</th>
+        <th class="num">12-1 mom</th>
+      </tr></thead>
+      <tbody>
+      {% for row in result.rows %}
+        <tr>
+          <td class="sym"><a href="/company/{{ row.symbol }}">{{ row.symbol }}</a></td>
+          <td class="wrap">{{ row.name }}</td>
+          <td class="dim">{{ row.sector }}</td>
+          <td class="num" data-sort="{{ row.market_cap or 0 }}">{{ row.market_cap | money }}</td>
+          <td class="num" data-sort="{{ row.score or 0 }}">{{ row.score | plain(2) }}</td>
+          <td class="num">{{ row.pe | ratio }}</td>
+          <td class="num">{{ row.ev_ebit | ratio }}</td>
+          <td class="num">{{ row.fcf_yield | pct(1) }}</td>
+          <td class="num">{{ row.roic | pct(1) }}</td>
+          <td class="num {{ row.revenue_cagr_5y | signclass }}">{{ row.revenue_cagr_5y | pct(1, true) }}</td>
+          <td class="num">{{ row.dividend_yield | pct(1) }}</td>
+          <td class="num {{ row.momentum_12_1 | signclass }}">{{ row.momentum_12_1 | pct(1, true) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty">
+  <p>No names passed this screen.</p>
+  <p class="dim">That is information. A deep-value screen returning nothing in a
+    large-cap universe is the correct answer, not a bug.</p>
+</div>
+{% endif %}
+
+{% if result.attrition %}
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Where names were filtered out</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class="wrap">Filter</th><th class="num">Rejected</th></tr></thead>
+        <tbody>
+        {% for row in result.attrition %}
+          <tr><td class="wrap">{{ row.filter }}</td>
+            <td class="num">{{ row.rejected }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="dim" style="margin:9px 0 0">Each rejection is attributed to the
+      first filter that caught it, so this reads as a funnel.</p>
+  </div>
+  <div class="card">
+    <h2>Failure modes of this strategy</h2>
+    <ul style="margin:0;padding-left:18px">
+      {% for item in result.failure_modes %}
+        <li class="dim" style="margin:5px 0;font-size:13.5px">{{ item }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+  <h2>Available screens</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Strategy</th><th class="wrap">What it looks for</th>
+        <th class="num">Filters</th></tr></thead>
+      <tbody>
+      {% for preset in presets %}
+        <tr>
+          <td><a href="/screen/{{ preset.key }}">{{ preset.name }}</a></td>
+          <td class="wrap">{{ preset.description }}
+            {% if preset.evidence %}<br><span class="dim">{{ preset.evidence }}</span>{% endif %}</td>
+          <td class="num">{{ preset.filters }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin:10px 0 0">Screens run over a large-cap sample by
+    default. The first run is slow because of API rate limits; results are cached
+    afterwards.</p>
+</div>
+{% endif %}
+{% endblock %}
