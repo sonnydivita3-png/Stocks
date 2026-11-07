@@ -36,6 +36,7 @@ from stocklab.company import Company  # noqa: E402
 from stocklab.data.providers.sec import fetch_frame, fetch_ticker_map  # noqa: E402
 from stocklab.data.universe import MEGA_CAP_SAMPLE, common_stocks  # noqa: E402
 from stocklab.scoring import score, size_band  # noqa: E402
+from stocklab.shortlist import GATES, assess  # noqa: E402
 from stocklab.util.mathx import is_num  # noqa: E402
 from stocklab.valuation import composite  # noqa: E402
 
@@ -64,7 +65,8 @@ COLUMNS = [
     "altman_z", "rev_cagr_3y", "rev_cagr_5y", "rev_trend_r2", "pe", "ps",
     "fcf_yield", "dividend_yield", "fair_value", "margin_of_safety",
     "implied_return", "implied_erp", "implied_method", "implied_is_floor",
-    "confidence", "share_count_ok", "from_52w_high",
+    "confidence", "share_count_ok", "category", "qualifies", "weakest_pillar",
+    "gates_passed", "gates_total", "gates_failed", "from_52w_high",
     "momentum_12_1", "vol63", "years_of_data",
 ]
 
@@ -176,6 +178,29 @@ def analyse(symbol: str) -> dict | None:
     scored = card.as_dict()
     scored["price_score"] = scored.pop("price")
     row.update({k: (num(v) if isinstance(v, float) else v) for k, v in scored.items()})
+
+    # What kind of business it is, and whether it clears every condition for a
+    # long hold. The grade averages its four pillars, so a strength cancels a
+    # weakness; this is a set of gates where nothing compensates for anything.
+    verdict = assess({
+        **metrics,
+        "profitable": row["profitable"],
+        "coverage": card.coverage,
+        "quality": card.quality, "growth": card.growth,
+        "safety": card.safety, "price": card.price,
+        "fair_value": report.fair_value,
+        "margin_of_safety": report.margin_of_safety,
+        "implied_equity_premium": report.implied_equity_premium,
+        "implied_return_is_floor": report.implied_return_is_floor,
+        "confidence": report.confidence,
+    })
+    row["category"] = verdict["category"]
+    row["gates_passed"] = verdict["gates_passed"]
+    row["gates_total"] = verdict["gates_total"]
+    row["qualifies"] = verdict["qualifies"]
+    row["weakest_pillar"] = num(verdict["weakest_pillar"])
+    row["gates_failed"] = "|".join(
+        g.key for g in GATES if not verdict["gates"][g.key])
     return row
 
 
