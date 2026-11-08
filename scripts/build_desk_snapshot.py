@@ -84,6 +84,8 @@ COLUMNS = [
     "above_sma200", "rsi14", "at_sma50", "at_sma200",
     "entry_confidence_50", "entry_confidence_200",
     "entry_low_50", "entry_high_50", "entry_low_200", "entry_high_200",
+    "val_dcf", "val_epv", "val_ri", "val_multiples", "val_ddm", "val_graham",
+    "history_revenue", "history_operating_income", "data_notes",
 ]
 
 
@@ -246,6 +248,37 @@ def analyse(symbol: str) -> dict | None:
         low, high = setup.entry_zone
         row[f"entry_low_{window}"] = num(low)
         row[f"entry_high_{window}"] = num(high)
+
+    # Each valuation model's own answer, so a reader can see where a fair
+    # value came from and where the models part company, rather than being
+    # handed a blended number to take on trust.
+    MODEL_KEYS = {
+        "DCF (FCFF, 10y fade)": "val_dcf", "Earnings Power Value": "val_epv",
+        "Residual income": "val_ri", "Multiples (own history)": "val_multiples",
+        "Dividend discount": "val_ddm", "Graham number": "val_graham",
+    }
+    for est in report.estimates:
+        key = MODEL_KEYS.get(est.name)
+        if key:
+            row[key] = num(est.value_per_share) if est.applicable else None
+
+    # Five years of the two lines everything else is built on, so the
+    # consistency the gates test can be seen rather than asserted.
+    def series(column: str) -> str:
+        if column not in company.fundamentals.annual.columns:
+            return ""
+        tail = company.fundamentals.annual[column].dropna().tail(5)
+        return "|".join(f"{d.year}:{v / 1e6:.0f}" for d, v in tail.items())
+
+    row["history_revenue"] = series("revenue")
+    row["history_operating_income"] = series("operating_income")
+
+    # Every repair and refusal this company's figures went through. A reader
+    # deciding whether to trust a number deserves to see why one is missing.
+    notes = list(metrics.get("share_count_notes") or [])
+    notes += list(metrics.get("income_notes") or [])
+    notes += [n for n in (report.notes or []) if "withheld" in n or "set aside" in n]
+    row["data_notes"] = " \u00b7 ".join(notes)[:900]
 
     row["category"] = verdict["category"]
     row["weakest_pillar"] = num(verdict["weakest_pillar"])

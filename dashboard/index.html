@@ -162,6 +162,41 @@
     padding: 7px 10px; border-radius: var(--cds-radius);
     border: 1px solid var(--color-border-line);
     background: var(--color-bg); color: var(--color-fg); }
+  .vd-open { align-self: start; margin-top: var(--cds-pad-xs); padding: 6px 12px;
+    font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer;
+    background: transparent; color: var(--color-fg);
+    border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
+  .vd-open:hover { background: var(--color-bg); }
+  /* the full breakdown */
+  .vd-deep { border-top: 1px solid var(--color-border-line);
+    padding-top: var(--cds-pad-sm); margin-top: var(--cds-pad-sm); }
+  .vd-deep > summary { cursor: pointer; font-size: var(--cds-font-size-body);
+    font-weight: var(--cds-font-weight-medium); padding: 4px 0; }
+  .vd-deep-head { margin: var(--cds-pad-sm) 0 var(--cds-pad-xs);
+    font-size: var(--cds-font-size-caption);
+    font-weight: var(--cds-font-weight-medium); }
+  .vd-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+  .vd-checks li { display: grid; grid-template-columns: 1.1rem 1fr;
+    gap: var(--cds-pad-xs); font-size: var(--cds-font-size-caption);
+    align-items: baseline; }
+  .vd-checks b { font-weight: 400; }
+  .vd-check-yes b { color: var(--color-ok); }
+  .vd-check-no b { color: var(--color-warn); }
+  .vd-check-no > span:first-of-type { color: var(--color-fg); }
+  .vd-checks li > span { color: var(--color-fg-muted); }
+  .vd-check-why { grid-column: 2; color: var(--color-fg-muted);
+    padding-bottom: var(--cds-pad-xs); }
+  .vd-models { display: grid; gap: var(--cds-pad-sm); }
+  .vd-model { display: grid; grid-template-columns: 1fr 5rem 4.5rem;
+    gap: var(--cds-pad-xs) var(--cds-pad-sm); align-items: center;
+    font-size: var(--cds-font-size-caption); }
+  .vd-model-name { color: var(--color-fg); }
+  .vd-model-bar { height: 7px; border-radius: 999px;
+    background: var(--cds-chart-grid); overflow: hidden; }
+  .vd-model-bar > i { display: block; height: 100%; border-radius: 999px; }
+  .vd-model-val { text-align: right; font-variant-numeric: tabular-nums;
+    font-weight: var(--cds-font-weight-medium); }
+  .vd-model-why { grid-column: 1 / -1; color: var(--color-fg-muted); }
   .vd-entry { margin: 0; font-size: var(--cds-font-size-caption);
     color: var(--color-fg-muted); }
   .vd-entry b { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
@@ -721,6 +756,13 @@
       const s = document.createElement('span'); s.textContent = text; says.appendChild(s);
     });
     card.append(top, name, what, scores, valueBlock(row), entryLine(row), says);
+
+    const open = document.createElement('button');
+    open.type = 'button'; open.className = 'vd-open';
+    open.textContent = 'Full breakdown';
+    open.addEventListener('click', () => openCompany(row.symbol));
+    card.appendChild(open);
+    card.classList.add('vd-co-click');
     return card;
   };
 
@@ -1081,6 +1123,169 @@
     }
   });
 
+  // ---- the full breakdown --------------------------------------------
+  const fold = (title, note) => {
+    const d = document.createElement('details'); d.className = 'vd-deep';
+    const sm = document.createElement('summary'); sm.textContent = title;
+    d.appendChild(sm);
+    if (note) {
+      const p = document.createElement('p'); p.className = 'vd-note';
+      p.textContent = note; d.appendChild(p);
+    }
+    return d;
+  };
+
+  // Every condition on all three screens, ticked or crossed, with the reason
+  // a failure matters. This is the page's actual reasoning; it was only ever
+  // visible as a count before.
+  const verdictBlock = (row) => {
+    const box = fold('Why it passes or fails each test',
+      'Every condition has to hold. Nothing makes up for anything.');
+    Object.keys(SCREENS).forEach((name) => {
+      const steps = rowsOf('screen').filter((r) => r.screen === name);
+      if (!steps.length) return;
+      const failed = new Set(String(row[name + '_failed'] || '').split('|').filter(Boolean));
+      const ok = String(row[name + '_qualifies']).toLowerCase() === 'true';
+
+      const h = document.createElement('p'); h.className = 'vd-deep-head';
+      h.textContent = name[0].toUpperCase() + name.slice(1) + ' \u2014 '
+        + (ok ? 'passes all ' + steps.length
+              : (steps.length - failed.size) + ' of ' + steps.length);
+      if (ok) h.style.color = 'var(--color-ok)';
+      box.appendChild(h);
+
+      const list = document.createElement('ul'); list.className = 'vd-checks';
+      steps.forEach((step) => {
+        const li = document.createElement('li');
+        const miss = failed.has(step.key);
+        li.className = miss ? 'vd-check-no' : 'vd-check-yes';
+        const mark = document.createElement('b');
+        mark.textContent = miss ? '\u2715' : '\u2713';
+        const label = document.createElement('span'); label.textContent = step.label;
+        li.append(mark, label);
+        if (miss) {
+          const why = document.createElement('span'); why.className = 'vd-check-why';
+          why.textContent = step.why_it_fails;
+          li.appendChild(why);
+        }
+        list.appendChild(li);
+      });
+      box.appendChild(list);
+    });
+    return box;
+  };
+
+  const MODELS = [
+    ['val_dcf', 'Discounted cash flow', 'Its future cash, discounted back to today.'],
+    ['val_epv', 'Earnings power', 'What it is worth if it never grows again.'],
+    ['val_ri', 'Book value plus excess returns', 'Balance sheet, plus the profit it earns above its cost of capital.'],
+    ['val_multiples', 'Its own ten-year multiples', 'Priced at the middle of its own history.'],
+    ['val_ddm', 'Dividends discounted', 'The cash it actually pays out.'],
+    ['val_graham', 'Graham number', 'A conservative floor, never a target.'],
+  ];
+
+  const modelBlock = (row) => {
+    const px = num(row.price);
+    const used = MODELS.filter(([k]) => num(row[k]) != null);
+    const box = fold('How each valuation method sees it',
+      used.length < 2
+        ? 'Fewer than two methods could be applied, so no fair value is published.'
+        : 'Where these disagree widely there is no single answer, and the page '
+          + 'withholds one rather than averaging incompatible guesses.');
+    if (!used.length) return box;
+    const vals = used.map(([k]) => num(row[k]));
+    const top = Math.max(px || 0, ...vals);
+    const list = document.createElement('div'); list.className = 'vd-models';
+    used.forEach(([key, label, why]) => {
+      const v = num(row[key]);
+      const line = document.createElement('div'); line.className = 'vd-model';
+      const n = document.createElement('span'); n.className = 'vd-model-name';
+      n.textContent = label;
+      const bar = document.createElement('span'); bar.className = 'vd-model-bar';
+      const fill = document.createElement('i');
+      fill.style.width = (100 * v / top) + '%';
+      fill.style.background = (px != null && v >= px) ? 'var(--color-ok)' : dash.colors[1];
+      bar.appendChild(fill);
+      const amt = document.createElement('b'); amt.className = 'vd-model-val';
+      amt.textContent = dollars(v);
+      const note = document.createElement('span'); note.className = 'vd-model-why';
+      note.textContent = why;
+      line.append(n, bar, amt, note);
+      list.appendChild(line);
+    });
+    if (px != null) {
+      const now = document.createElement('p'); now.className = 'vd-note';
+      now.textContent = 'Trading at ' + dollars(px) + ' today.';
+      list.appendChild(now);
+    }
+    box.appendChild(list);
+    return box;
+  };
+
+  const priceBlock = (row) => {
+    const box = fold('Where the price sits', 'Moving averages say when to start on '
+      + 'a company the numbers already support. They never pick the company.');
+    const rows = [
+      ['50-day average', dollars(num(row.sma50))
+        + (num(row.dist_sma50) == null ? '' : '  (' + fmtPctS(num(row.dist_sma50)) + ')')],
+      ['200-day average', dollars(num(row.sma200))
+        + (num(row.dist_sma200) == null ? '' : '  (' + fmtPctS(num(row.dist_sma200)) + ')')],
+      ['200-day direction',
+        String(row.sma200_rising).toLowerCase() === 'true' ? 'rising' : 'flat or falling'],
+      ['Below its 12-month high', num(row.from_52w_high) == null ? '\u2014'
+        : fmtPct(Math.abs(num(row.from_52w_high)))],
+      ['RSI', num(row.rsi14) == null ? '\u2014' : fmtI(num(row.rsi14)) + ' / 100'],
+      ['Typical daily move', num(row.vol63) == null ? '\u2014'
+        : fmtPct(num(row.vol63) / Math.sqrt(252))],
+      ['Traded per day', money(num(row.dollar_volume_50d))],
+    ];
+    const lo = num(row.entry_low_50), hi = num(row.entry_high_50);
+    if (lo != null && hi != null) {
+      rows.push(['Pullback zone, 50-day', dollars(lo) + ' to ' + dollars(hi)]);
+    }
+    box.appendChild(kv(rows));
+    return box;
+  };
+
+  const historyBlock = (row) => {
+    const box = fold('Five years of sales and profit',
+      'The record the consistency tests are run against. Figures in millions.');
+    const parse = (text) => String(text || '').split('|').filter(Boolean)
+      .map((pair) => { const [y, v] = pair.split(':'); return {year: y, value: Number(v)}; });
+    const rev = parse(row.history_revenue);
+    const op = parse(row.history_operating_income);
+    if (!rev.length && !op.length) {
+      const p = document.createElement('p'); p.className = 'vd-miss';
+      p.textContent = 'No usable annual history.'; box.appendChild(p); return box;
+    }
+    const years = rev.length ? rev.map((r) => r.year) : op.map((r) => r.year);
+    const byYear = (list) => Object.fromEntries(list.map((r) => [r.year, r.value]));
+    const r = byYear(rev), o = byYear(op);
+    const pairs = years.map((y) => [y,
+      (r[y] == null ? '\u2014' : fmtI(r[y])) + '   /   '
+      + (o[y] == null ? '\u2014' : fmtI(o[y]))]);
+    const head = document.createElement('p'); head.className = 'vd-note';
+    head.textContent = 'Sales / operating profit';
+    box.append(head, kv(pairs));
+    return box;
+  };
+
+  const notesBlock = (row) => {
+    const text = String(row.data_notes || '').trim();
+    const box = fold('What had to be repaired or withheld',
+      text ? '' : 'Nothing: every figure came straight from the filings.');
+    if (text) {
+      const list = document.createElement('ul'); list.className = 'vd-near';
+      text.split(' \u00b7 ').filter(Boolean).forEach((note) => {
+        const li = document.createElement('li');
+        const sp = document.createElement('span'); sp.className = 'vd-near-name';
+        sp.textContent = note; li.appendChild(sp); list.appendChild(li);
+      });
+      box.appendChild(list);
+    }
+    return box;
+  };
+
   dash.draw('lookup', (el) => {
     const d = dash.data('companies');
     el.replaceChildren();
@@ -1169,9 +1374,23 @@
        num(row.momentum) == null ? '—' : fmtI(num(row.momentum)) + ' / 100'],
     ]));
     cols.append(left, right);
-    wrap.append(top, name, what, rank, valueBlock(row), cols);
+    wrap.append(top, name, what, rank, valueBlock(row), entryLine(row), cols);
+    wrap.append(verdictBlock(row), modelBlock(row), priceBlock(row),
+                historyBlock(row), notesBlock(row));
     el.appendChild(wrap);
   });
+
+  // Opening a company from anywhere on the page: show the Look up panel and
+  // run it there, so there is one detail view rather than two that drift.
+  const openCompany = (symbol) => {
+    lookupQuery = symbol;
+    const input = document.getElementById('vd-query');
+    if (input) input.value = symbol;
+    showTab('lookup');
+    dash.draw('lookup');
+    const panel = document.getElementById('lookup');
+    if (panel && panel.scrollIntoView) panel.scrollIntoView({block: 'start'});
+  };
 
   const runLookup = () => {
     const input = document.getElementById('vd-query');
