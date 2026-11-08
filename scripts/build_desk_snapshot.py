@@ -36,6 +36,7 @@ from stocklab.analysis.regime import assess  # noqa: E402
 from stocklab.company import Company  # noqa: E402
 from stocklab.data.providers.sec import fetch_frame, fetch_ticker_map  # noqa: E402
 from stocklab.data.universe import MEGA_CAP_SAMPLE, common_stocks  # noqa: E402
+from stocklab.entry.signals import pullback_to_trend  # noqa: E402
 from stocklab.scoring import score, size_band  # noqa: E402
 # Aliased on purpose: stocklab.analysis.regime also exports `assess`, and
 # importing both under one name silently shadowed the regime's. Every run
@@ -79,6 +80,10 @@ COLUMNS = [
     "speculative_qualifies", "speculative_passed", "speculative_total",
     "speculative_failed", "from_52w_high",
     "momentum_12_1", "vol63", "dollar_volume_50d", "years_of_data",
+    "sma50", "sma200", "dist_sma50", "dist_sma200", "sma200_rising",
+    "above_sma200", "rsi14", "at_sma50", "at_sma200",
+    "entry_confidence_50", "entry_confidence_200",
+    "entry_low_50", "entry_high_50", "entry_low_200", "entry_high_200",
 ]
 
 
@@ -189,6 +194,17 @@ def analyse(symbol: str) -> dict | None:
         "from_52w_high": num(technicals.get("pct_from_52w_high")),
         "momentum_12_1": num(technicals.get("momentum_12_1")),
         "dollar_volume_50d": num(technicals.get("dollar_volume_50d")),
+        # Where the price sits against the averages buyers watch. A company
+        # the screens already like, back at a level that has held before, is
+        # a moment to start; the same distance below a falling average is the
+        # level having given way.
+        "sma50": num(technicals.get("sma50")),
+        "sma200": num(technicals.get("sma200")),
+        "dist_sma50": num(technicals.get("dist_sma50")),
+        "dist_sma200": num(technicals.get("dist_sma200")),
+        "sma200_rising": bool(technicals.get("sma200_rising")),
+        "above_sma200": bool(technicals.get("above_sma200")),
+        "rsi14": num(technicals.get("rsi14")),
         "vol63": num(technicals.get("vol63")),
         "years_of_data": num(metrics.get("years_of_data")),
     }
@@ -217,6 +233,20 @@ def analyse(symbol: str) -> dict | None:
         "implied_growth": getattr(report.reverse, "implied_growth", None),
         "historical_growth": getattr(report.reverse, "historical_growth", None),
     })
+    # The pullback setup, run against both averages. It asks for more than
+    # nearness: above a rising 200-day, RSI reset rather than broken, and no
+    # volume spike on the way down.
+    for window in (50, 200):
+        try:
+            setup = pullback_to_trend(company.history, ma_window=window)
+        except Exception:  # noqa: BLE001 - a thin history must not stop the run
+            continue
+        row[f"at_sma{window}"] = bool(setup.triggered)
+        row[f"entry_confidence_{window}"] = num(setup.confidence)
+        low, high = setup.entry_zone
+        row[f"entry_low_{window}"] = num(low)
+        row[f"entry_high_{window}"] = num(high)
+
     row["category"] = verdict["category"]
     row["weakest_pillar"] = num(verdict["weakest_pillar"])
     # One row carries all three verdicts: a company is offered against every

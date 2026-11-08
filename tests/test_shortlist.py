@@ -316,3 +316,49 @@ class TestSizeChangesSomeConditionsAndNotOthers:
         for size in ("mega", "large", "mid", "small", "micro"):
             got = gate_results({**dear, "size": size}, "value")
             assert not got["below_fair"] and not got["beats_treasury"]
+
+
+class TestNearnessToAnAverageIsNotAlwaysSupport:
+    """A company back at a moving average it has held above is the oldest
+    entry setup there is. The same distance below an average that has already
+    given way is the opposite, and the arithmetic of "near" cannot tell them
+    apart on its own."""
+
+    @staticmethod
+    def _frame(path):
+        """A synthetic daily series following `path` of closes."""
+        import pandas as pd
+        n = len(path)
+        idx = pd.bdate_range("2023-01-02", periods=n)
+        return pd.DataFrame({"open": path, "high": [p * 1.01 for p in path],
+                             "low": [p * 0.99 for p in path], "close": path,
+                             "volume": [1_000_000] * n}, index=idx)
+
+    def test_a_pullback_in_an_uptrend_triggers(self):
+        from stocklab.entry.signals import pullback_to_trend
+        rise = [50 + i * 0.12 for i in range(300)]
+        dip = [rise[-1] * (1 - 0.004 * i) for i in range(1, 13)]
+        setup = pullback_to_trend(self._frame(rise + dip), ma_window=50)
+        assert setup.conditions["price above 200-day"]
+        assert setup.conditions["200-day rising"]
+
+    def test_a_share_under_a_falling_average_does_not(self):
+        from stocklab.entry.signals import pullback_to_trend
+        fall = [200 - i * 0.35 for i in range(300)]
+        setup = pullback_to_trend(self._frame(fall), ma_window=50)
+        assert not setup.triggered
+        assert not setup.conditions["200-day rising"]
+
+    def test_a_thin_history_is_refused_rather_than_guessed(self):
+        from stocklab.entry.signals import pullback_to_trend
+        setup = pullback_to_trend(self._frame([10.0] * 50), ma_window=50)
+        assert not setup.triggered
+        assert any("history" in n for n in setup.notes)
+
+    def test_confidence_is_already_out_of_a_hundred(self):
+        """It is a 0-100 score, not a fraction: formatting it as a percentage
+        a second time reports 8235%."""
+        from stocklab.entry.signals import pullback_to_trend
+        rise = [50 + i * 0.12 for i in range(312)]
+        setup = pullback_to_trend(self._frame(rise), ma_window=50)
+        assert 0.0 <= setup.confidence <= 100.0
