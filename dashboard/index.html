@@ -1,10 +1,15 @@
 <meta name="dash-one-writer">
 <style>
-  .vd { font-family: var(--font-anthropic-sans); }
-  .vd-head { display: flex; flex-direction: column; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-md); }
+  .vd { font-family: var(--font-anthropic-sans);
+    max-width: 68rem; margin-inline: auto; }
+  .vd :is(h1, h2, h3) { text-wrap: balance; }
+  .vd-head { display: flex; flex-direction: column; gap: var(--cds-pad-xs);
+    margin-bottom: var(--cds-gap-md); }
   .vd-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400;
-    font-size: var(--cds-font-size-title); margin: 0; }
-  .vd-takeaway { color: var(--color-fg-muted); font-size: var(--cds-font-size-body); margin: 0; }
+    font-size: calc(var(--cds-font-size-title) * 1.25); line-height: 1.15;
+    letter-spacing: -0.01em; margin: 0; }
+  .vd-takeaway { color: var(--color-fg); font-size: var(--cds-font-size-body);
+    margin: 0; max-width: 48rem; }
 
   .vd-card { background: var(--color-panel); border: 1px solid var(--color-border-line);
     border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
@@ -16,9 +21,36 @@
   .vd-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: var(--cds-pad-xs) 0 0; }
 
-  .vd-tiles { display: grid; gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-lg);
+  /* Tabs. Four questions, one at a time, so nothing is reached by scrolling
+     past something else. A panel that is hidden loads no data and runs no
+     drawing until it is opened, which is also why the page starts fast. */
+  .vd-tabs { display: flex; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-lg);
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--color-border-line); }
+  .vd-tabs::-webkit-scrollbar { display: none; }
+  .vd-tab { flex: 0 0 auto; appearance: none; background: transparent;
+    border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+    padding: 10px 2px; margin-right: var(--cds-pad-md);
+    font: inherit; font-size: var(--cds-font-size-body);
+    color: var(--color-fg-muted); white-space: nowrap; }
+  .vd-tab:hover { color: var(--color-fg); }
+  .vd-tab[aria-current="page"] { color: var(--color-fg);
+    border-bottom-color: var(--color-fg);
+    font-weight: var(--cds-font-weight-medium); }
+  .vd-panel[hidden] { display: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .vd-tab { transition: color var(--cds-dur-slow) var(--cds-ease-out),
+                          border-color var(--cds-dur-slow) var(--cds-ease-out); }
+    .vd-srow .t > i { transition: width var(--cds-dur-slow) var(--cds-ease-out); }
+  }
+
+  .vd-tiles { display: grid; gap: var(--cds-gap-sm); margin-bottom: var(--cds-gap-lg);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
   .vd-section { margin-bottom: var(--cds-gap-xl); }
+  .vd-section > h2 { font-family: var(--font-anthropic-serif); font-weight: 400;
+    font-size: var(--cds-font-size-title); line-height: 1.2;
+    margin: 0 0 var(--cds-pad-xs); }
+  .vd-section > .vd-note:first-of-type { max-width: 44rem; }
   .vd-section > h2 { font-size: var(--cds-font-size-heading);
     font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-pad-xs); }
   .vd-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
@@ -44,10 +76,14 @@
     border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0;
     display: flex; flex-direction: column; gap: var(--cds-pad-sm); }
   .vd-co-top { display: flex; align-items: baseline; gap: var(--cds-pad-sm); flex-wrap: wrap; }
-  .vd-co-sym { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
-  .vd-co-grade { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title);
-    line-height: 1; margin-left: auto; }
-  .vd-co-name { font-size: var(--cds-font-size-caption); color: var(--color-fg); margin: 0; }
+  .vd-co-sym { font-family: var(--font-anthropic-serif); font-weight: 400;
+    font-size: var(--cds-font-size-heading); line-height: 1;
+    letter-spacing: -0.01em; }
+  .vd-co-grade { font-family: var(--font-anthropic-serif); font-weight: 400;
+    font-size: var(--cds-font-size-title); line-height: 1; margin-left: auto;
+    min-width: 1.4em; text-align: right; }
+  .vd-co-name { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    margin: 0; line-height: 1.3; }
   .vd-co-what { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
   .vd-chip { font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line);
     border-radius: 999px; padding: 1px 8px; color: var(--color-fg-muted); white-space: nowrap; }
@@ -55,8 +91,9 @@
   .vd-srow { display: grid; grid-template-columns: 5.2rem 1fr 2rem; gap: var(--cds-pad-sm);
     align-items: center; }
   .vd-srow .k { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .vd-srow .t { height: 6px; border-radius: 3px; background: var(--cds-chart-grid); overflow: hidden; }
-  .vd-srow .t > i { display: block; height: 100%; border-radius: 3px; }
+  .vd-srow .t { height: 7px; border-radius: 999px; background: var(--cds-chart-grid);
+    overflow: hidden; }
+  .vd-srow .t > i { display: block; height: 100%; border-radius: 999px; }
   .vd-srow .n { font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums;
     text-align: right; color: var(--color-fg-muted); }
   .vd-says { display: grid; gap: 3px; margin-top: var(--cds-pad-xs);
@@ -189,40 +226,14 @@
       does not update while it is open: it shows the analysis from the last rebuild.</p>
   </header>
 
-  <div class="vd-explain">
-    <h2>How to read this page</h2>
-    <p>Every company here is scored out of 100 on four things, from the figures it
-      files with the regulator. The scores are then combined into one grade from A to F.
-      A high grade means a company is good at its business, growing, not heavily in debt,
-      and not obviously overpriced today.</p>
-    <p><b>A grade is not a prediction.</b> It describes the company as it is now. It cannot
-      know what a business will do next, and the market may already expect everything the
-      numbers show.</p>
-    <div class="vd-pillars">
-      <div class="vd-pillar"><b>Business quality</b>
-        <span>How much profit it earns on the money put into it. Higher is better.</span></div>
-      <div class="vd-pillar"><b>Growth</b>
-        <span>How fast sales are rising, and how steadily rather than in one lucky year.</span></div>
-      <div class="vd-pillar"><b>Financial safety</b>
-        <span>How much it owes, and whether it could survive a bad year.</span></div>
-      <div class="vd-pillar"><b>Price</b>
-        <span>Whether today's share price looks sensible for what the business earns.</span></div>
-      <div class="vd-pillar"><b>Fair value estimate</b>
-        <span>What the share looks worth on the cash the business is likely to produce,
-        next to what it costs today. An estimate, not a target.</span></div>
-      <div class="vd-pillar"><b>Return above Treasury</b>
-        <span>How much more per year you would earn at today's price than by lending the
-        money to the US government, if the business performs as its history suggests.</span></div>
-      <div class="vd-pillar"><b>What kind of company</b>
-        <span>Each one is labelled: growing fast, a quality compounder, pays an income,
-        steady, shrinking, hard to value, or speculative. The label describes the
-        business, not whether the price is right.</span></div>
-      <div class="vd-pillar"><b>Not yet profitable</b>
-        <span>A label on companies still making a loss. Their price score is weak or missing,
-        because there are no profits to value.</span></div>
-    </div>
-  </div>
+  <nav class="vd-tabs" aria-label="Sections">
+    <button type="button" class="vd-tab" data-tab="buy" aria-current="page">Worth buying</button>
+    <button type="button" class="vd-tab" data-tab="browse">Browse</button>
+    <button type="button" class="vd-tab" data-tab="lookup">Look up</button>
+    <button type="button" class="vd-tab" data-tab="about">How it works</button>
+  </nav>
 
+  <div class="vd-panel" id="buy" data-panel="buy">
   <div class="vd-tiles">
     <div class="vd-card">
       <p class="vd-label">Companies examined</p>
@@ -250,27 +261,6 @@
         data-field="value" data-where="metric=score">—</span> out of 100 on trend, credit and volatility</p>
     </div>
   </div>
-
-  <section class="vd-section">
-    <h2>Look up a company</h2>
-    <p class="vd-note">Type a ticker symbol or a company name, then tap a suggestion or
-      press Analyse. You will get the same four scores and the same grade used everywhere
-      else on this page.</p>
-    <div class="vd-card">
-      <div class="vd-search">
-        <input type="search" id="vd-query" autocomplete="off" spellcheck="false"
-               enterkeyhint="search" role="combobox" aria-expanded="false"
-               aria-controls="vd-sugg" aria-autocomplete="list"
-               aria-label="Ticker symbol or company name"
-               placeholder="For example NVDA, or Nvidia">
-        <button type="button" id="vd-go">Analyse</button>
-      </div>
-      <ul id="vd-sugg" class="vd-sugg" data-draw="ticker-options" data-source="companies"
-          role="listbox" aria-label="Matching companies" hidden></ul>
-      <div data-draw="lookup" data-source="companies"></div>
-    </div>
-  </section>
-
   <section class="vd-section">
     <h2>Worth buying now</h2>
     <p class="vd-note">The grade below is an <em>average</em> of four scores, so a company
@@ -322,7 +312,6 @@
       <div data-draw="near-miss" data-source="companies"></div>
     </div>
   </section>
-
   <section class="vd-section">
     <h2>Highest scoring overall</h2>
     <p class="vd-note">Ranked by the combined score. These are the companies where good
@@ -334,7 +323,9 @@
       Each card says which industry it is.</p>
     <div class="vd-cards" data-draw="top-cards" data-source="companies"></div>
   </section>
+  </div>
 
+  <div class="vd-panel" id="browse" data-panel="browse" hidden>
   <section class="vd-section">
     <h2>Browse by type</h2>
     <p class="vd-note">The ten best in whichever group you pick, ranked by their weakest
@@ -362,7 +353,64 @@
     </div>
     <div class="vd-cards" data-draw="group-cards" data-source="companies regime_readings"></div>
   </section>
+  </div>
 
+  <div class="vd-panel" id="lookup" data-panel="lookup" hidden>
+  <section class="vd-section">
+    <h2>Look up a company</h2>
+    <p class="vd-note">Type a ticker symbol or a company name, then tap a suggestion or
+      press Analyse. You will get the same four scores and the same grade used everywhere
+      else on this page.</p>
+    <div class="vd-card">
+      <div class="vd-search">
+        <input type="search" id="vd-query" autocomplete="off" spellcheck="false"
+               enterkeyhint="search" role="combobox" aria-expanded="false"
+               aria-controls="vd-sugg" aria-autocomplete="list"
+               aria-label="Ticker symbol or company name"
+               placeholder="For example NVDA, or Nvidia">
+        <button type="button" id="vd-go">Analyse</button>
+      </div>
+      <ul id="vd-sugg" class="vd-sugg" data-draw="ticker-options" data-source="companies"
+          role="listbox" aria-label="Matching companies" hidden></ul>
+      <div data-draw="lookup" data-source="companies"></div>
+    </div>
+  </section>
+  </div>
+
+  <div class="vd-panel" id="about" data-panel="about" hidden>
+  <div class="vd-explain">
+    <h2>How to read this page</h2>
+    <p>Every company here is scored out of 100 on four things, from the figures it
+      files with the regulator. The scores are then combined into one grade from A to F.
+      A high grade means a company is good at its business, growing, not heavily in debt,
+      and not obviously overpriced today.</p>
+    <p><b>A grade is not a prediction.</b> It describes the company as it is now. It cannot
+      know what a business will do next, and the market may already expect everything the
+      numbers show.</p>
+    <div class="vd-pillars">
+      <div class="vd-pillar"><b>Business quality</b>
+        <span>How much profit it earns on the money put into it. Higher is better.</span></div>
+      <div class="vd-pillar"><b>Growth</b>
+        <span>How fast sales are rising, and how steadily rather than in one lucky year.</span></div>
+      <div class="vd-pillar"><b>Financial safety</b>
+        <span>How much it owes, and whether it could survive a bad year.</span></div>
+      <div class="vd-pillar"><b>Price</b>
+        <span>Whether today's share price looks sensible for what the business earns.</span></div>
+      <div class="vd-pillar"><b>Fair value estimate</b>
+        <span>What the share looks worth on the cash the business is likely to produce,
+        next to what it costs today. An estimate, not a target.</span></div>
+      <div class="vd-pillar"><b>Return above Treasury</b>
+        <span>How much more per year you would earn at today's price than by lending the
+        money to the US government, if the business performs as its history suggests.</span></div>
+      <div class="vd-pillar"><b>What kind of company</b>
+        <span>Each one is labelled: growing fast, a quality compounder, pays an income,
+        steady, shrinking, hard to value, or speculative. The label describes the
+        business, not whether the price is right.</span></div>
+      <div class="vd-pillar"><b>Not yet profitable</b>
+        <span>A label on companies still making a loss. Their price score is weak or missing,
+        because there are no profits to value.</span></div>
+    </div>
+  </div>
   <details>
     <summary>What the scores mean in detail, and what this page cannot tell you</summary>
 
@@ -443,6 +491,7 @@
         filings or speaking to someone qualified.</li>
     </ul>
   </details>
+  </div>
 </div>
 
 <script>
@@ -835,6 +884,25 @@
       el.appendChild(none); return;
     }
     picked.forEach((r) => el.appendChild(companyCard(r)));
+  });
+
+  // ---- tabs ----------------------------------------------------------
+  // Panels are sections of this page, all but one carrying `hidden`. The
+  // runtime loads no dataset and runs no drawing inside a hidden panel, so
+  // opening one is what makes its data load.
+  const showTab = (name) => {
+    document.querySelectorAll('.vd-panel').forEach((panel) => {
+      panel.hidden = panel.getAttribute('data-panel') !== name;
+    });
+    document.querySelectorAll('.vd-tab').forEach((tab) => {
+      const on = tab.getAttribute('data-tab') === name;
+      if (on) tab.setAttribute('aria-current', 'page');
+      else tab.removeAttribute('aria-current');
+    });
+    if (dash.setLink) dash.setLink(name);
+  };
+  document.querySelectorAll('.vd-tab').forEach((tab) => {
+    tab.addEventListener('click', () => showTab(tab.getAttribute('data-tab')));
   });
 
   document.querySelectorAll('#vd-screen').forEach((sel) => {
