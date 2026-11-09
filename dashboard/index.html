@@ -644,7 +644,6 @@
     row.append(k, t, n); return row;
   };
 
-  const companyCard = (row) => {
   // What the business looks worth, and what you are paid for owning it instead
   // of a government bond. Both are estimates from the filings and both are
   // withheld rather than guessed when the history is too short to support one.
@@ -743,6 +742,7 @@
     return box;
   };
 
+  const companyCard = (row) => {
     const card = document.createElement('div'); card.className = 'vd-co';
     const top = document.createElement('div'); top.className = 'vd-co-top';
     const sym = document.createElement('span'); sym.className = 'vd-co-sym'; sym.textContent = row.symbol;
