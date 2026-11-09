@@ -162,6 +162,8 @@
     padding: 7px 10px; border-radius: var(--cds-radius);
     border: 1px solid var(--color-border-line);
     background: var(--color-bg); color: var(--color-fg); }
+  .vd-why { margin: 0; font-size: var(--cds-font-size-caption);
+    color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
   .vd-open { align-self: start; margin-top: var(--cds-pad-xs); padding: 6px 12px;
     font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer;
     background: transparent; color: var(--color-fg);
@@ -326,6 +328,17 @@
         </select>
       </label>
       <p class="vd-note" data-draw="screen-note" data-source="companies">&mdash;</p>
+      <label class="vd-pick">
+        <span>Order by</span>
+        <select class="dash-select vd-sort" aria-label="How to order the list">
+          <option value="grade">best grade first</option>
+          <option value="balanced">most balanced first</option>
+          <option value="cheap">cheapest against fair value</option>
+          <option value="premium">most expected return above a Treasury</option>
+          <option value="growth">fastest sales growth</option>
+        </select>
+      </label>
+
       <p class="vd-label">Clear every condition today</p>
       <b class="vd-big" data-draw="count-qualify" data-source="companies">&mdash;</b>
       <p class="vd-sub">out of <span data-draw="count-of" data-source="counts"
@@ -391,6 +404,17 @@
         </select>
       </label>
       <p class="vd-note" data-draw="group-note" data-source="companies">&mdash;</p>
+      <label class="vd-pick">
+        <span>Order by</span>
+        <select class="dash-select vd-sort" aria-label="How to order the list">
+          <option value="grade">best grade first</option>
+          <option value="balanced">most balanced first</option>
+          <option value="cheap">cheapest against fair value</option>
+          <option value="premium">most expected return above a Treasury</option>
+          <option value="growth">fastest sales growth</option>
+        </select>
+      </label>
+
     </div>
     <div class="vd-cards" data-draw="group-cards" data-source="companies regime_readings"></div>
   </section>
@@ -757,6 +781,13 @@
     });
     card.append(top, name, what, scores, valueBlock(row), entryLine(row), says);
 
+    const why = sortNote(row);
+    if (why) {
+      const tag = document.createElement('p'); tag.className = 'vd-why';
+      tag.textContent = why;
+      card.appendChild(tag);
+    }
+
     const open = document.createElement('button');
     open.type = 'button'; open.className = 'vd-open';
     open.textContent = 'Full breakdown';
@@ -843,14 +874,48 @@
     });
   });
 
-  const byWeakest = (a, b) => (num(b.weakest_pillar) || 0) - (num(a.weakest_pillar) || 0);
+  // Lists used to rank by the weakest of the four scores, to carry "nothing
+  // compensates for anything" into the ordering. For a screened list that
+  // reasoning is already spent: every company on it has passed every
+  // condition, so the disqualifying weakness the ranking guarded against is
+  // gone before the list exists. All it did was scramble the order against
+  // the grade printed on each card -- A, C, B, A down the page. Grade is the
+  // default now, and whatever order is in force is named on the card.
+  const SORTS = {
+    grade: {label: 'best grade first',
+            key: (r) => num(r.overall) ?? -1, show: null},
+    balanced: {label: 'most balanced first',
+               key: (r) => num(r.weakest_pillar) ?? -1,
+               show: (r) => num(r.weakest_pillar) == null ? null
+                 : 'weakest score ' + fmtI(num(r.weakest_pillar))},
+    cheap: {label: 'cheapest against fair value',
+            key: (r) => num(r.margin_of_safety) ?? -99,
+            show: (r) => num(r.margin_of_safety) == null ? null
+              : fmtPctS(num(r.margin_of_safety)) + ' vs fair value'},
+    premium: {label: 'most expected return above a Treasury',
+              key: (r) => num(r.implied_erp) ?? -99,
+              show: (r) => num(r.implied_erp) == null ? null
+                : fmtPctS(num(r.implied_erp)) + ' a year above a Treasury'},
+    growth: {label: 'fastest sales growth',
+             key: (r) => num(r.rev_cagr_3y) ?? -99,
+             show: (r) => num(r.rev_cagr_3y) == null ? null
+               : fmtPctS(num(r.rev_cagr_3y)) + ' sales growth a year'},
+  };
+  let sortBy = 'grade';
+  const inOrder = (rows) => rows.slice()
+    .sort((a, b) => SORTS[sortBy].key(b) - SORTS[sortBy].key(a)
+      || (num(b.overall) ?? -1) - (num(a.overall) ?? -1));
+  const sortNote = (row) => {
+    const show = SORTS[sortBy].show;
+    return show ? show(row) : null;
+  };
 
   dash.draw('qualify-cards', (el) => {
     const d = dash.data('companies');
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    const pass = rowsOf('companies').filter(passes).sort(byWeakest);
+    const pass = inOrder(rowsOf('companies').filter(passes));
     if (!pass.length) {
       const none = document.createElement('p'); none.className = 'vd-miss';
       none.textContent = 'Nothing clears every condition on this list today. That '
@@ -869,9 +934,9 @@
     const labels = {};
     rowsOf('screen').filter((r) => r.screen === screen)
       .forEach((r) => { labels[r.key] = r.label; });
-    const near = rowsOf('companies')
-      .filter((r) => !passes(r) && missedBy(r) === 1)
-      .sort(byWeakest).slice(0, 12);
+    const near = inOrder(rowsOf('companies')
+      .filter((r) => !passes(r) && missedBy(r) === 1))
+      .slice(0, 12);
     if (!near.length) {
       const none = document.createElement('p'); none.className = 'vd-miss';
       none.textContent = 'No company is one condition away today.';
@@ -897,9 +962,7 @@
     el.replaceChildren();
     if (d.status === 'error' || d.status === 'connect') { failLine(el); return; }
     if (d.status !== 'ok') return;
-    rowsOf('companies')
-      .filter((r) => num(r.overall) != null)
-      .sort((a, b) => num(b.overall) - num(a.overall))
+    inOrder(rowsOf('companies').filter((r) => num(r.overall) != null))
       .slice(0, HEADLINE)
       .forEach((r) => el.appendChild(companyCard(r)));
   });
@@ -954,13 +1017,7 @@
   // nothing on a list is badly weak anywhere. A company with no price score
   // (no profits to value) has no weakest pillar and falls back to the grade,
   // ranked below everything that has one.
-  const rankKey = (r) => {
-    const w = num(r.weakest_pillar);
-    return w == null ? (num(r.overall) ?? 0) - 1000 : w;
-  };
-  const inGroup = () => rowsOf('companies')
-    .filter(GROUPS[group].pick)
-    .sort((a, b) => rankKey(b) - rankKey(a));
+  const inGroup = () => inOrder(rowsOf('companies').filter(GROUPS[group].pick));
 
   dash.draw('group-note', (el) => {
     if (dash.data('companies').status !== 'ok') { el.textContent = '\u2014'; return; }
@@ -998,6 +1055,15 @@
     });
     if (dash.setLink) dash.setLink(name);
   };
+  document.querySelectorAll('.vd-sort').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      sortBy = SORTS[sel.value] ? sel.value : 'grade';
+      document.querySelectorAll('.vd-sort').forEach((o) => { o.value = sortBy; });
+      ['qualify-cards', 'near-miss', 'group-cards', 'top-cards']
+        .forEach((id) => dash.draw(id));
+    });
+  });
+
   document.querySelectorAll('.vd-tab').forEach((tab) => {
     tab.addEventListener('click', () => showTab(tab.getAttribute('data-tab')));
   });
