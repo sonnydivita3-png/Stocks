@@ -12,36 +12,59 @@
     margin: 0; max-width: 48rem; }
 
   .vd-card { background: var(--color-panel); border: 1px solid var(--color-border-line);
-    border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+    border-radius: calc(var(--cds-radius) * 2); padding: var(--cds-pad-lg);
+    min-width: 0; }
   .vd-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
-    margin: 0 0 var(--cds-pad-xs); }
+    margin: 0 0 var(--cds-pad-xs); text-transform: uppercase;
+    letter-spacing: .06em; font-weight: var(--cds-font-weight-medium); }
   .vd-big { font-family: var(--font-anthropic-serif); font-weight: 400;
-    font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums;
-    line-height: 1.1; display: block; }
+    font-size: calc(var(--cds-font-size-title) * 1.6);
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+    line-height: 1.05; display: block; }
   .vd-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
     margin: var(--cds-pad-xs) 0 0; }
 
   /* Tabs. Four questions, one at a time, so nothing is reached by scrolling
      past something else. A panel that is hidden loads no data and runs no
      drawing until it is opened, which is also why the page starts fast. */
-  .vd-tabs { display: flex; gap: var(--cds-gap-xs); margin-bottom: var(--cds-gap-lg);
+  .vd-tabs { display: flex; gap: 6px; margin-bottom: var(--cds-gap-lg);
     overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    border-bottom: 1px solid var(--color-border-line); }
+    padding: 5px; border-radius: 999px;
+    background: color-mix(in srgb, var(--color-fg) 6%, transparent); }
   .vd-tabs::-webkit-scrollbar { display: none; }
-  .vd-tab { flex: 0 0 auto; appearance: none; background: transparent;
-    border: 0; border-bottom: 2px solid transparent; cursor: pointer;
-    padding: 10px 2px; margin-right: var(--cds-pad-md);
+  .vd-tab { flex: 1 1 auto; appearance: none; background: transparent;
+    border: 0; border-radius: 999px; cursor: pointer; padding: 9px 16px;
     font: inherit; font-size: var(--cds-font-size-body);
-    color: var(--color-fg-muted); white-space: nowrap; }
-  .vd-tab:hover { color: var(--color-fg); }
-  .vd-tab[aria-current="page"] { color: var(--color-fg);
-    border-bottom-color: var(--color-fg);
-    font-weight: var(--cds-font-weight-medium); }
+    color: var(--color-fg); opacity: .6; white-space: nowrap; }
+  .vd-tab:hover { opacity: 1; }
+  .vd-tab[aria-current="page"] { opacity: 1; background: var(--color-bg);
+    font-weight: var(--cds-font-weight-medium);
+    box-shadow: var(--cds-shadow-popover); }
   .vd-panel[hidden] { display: none; }
   @media (prefers-reduced-motion: no-preference) {
-    .vd-tab { transition: color var(--cds-dur-slow) var(--cds-ease-out),
-                          border-color var(--cds-dur-slow) var(--cds-ease-out); }
-    .vd-srow .t > i { transition: width var(--cds-dur-slow) var(--cds-ease-out); }
+    .vd-tab { transition: opacity var(--cds-dur-slow) var(--cds-ease-out),
+                          background var(--cds-dur-slow) var(--cds-ease-out); }
+    .vd-srow .t > i,
+    .vd-model-bar > i,
+    .vd-step-kept, .vd-step-lost {
+      transition: width var(--cds-dur-slow) var(--cds-ease-out); }
+    .vd-co, .vd-open, .vd-sugg button {
+      transition: border-color var(--cds-dur-slow) var(--cds-ease-out),
+                  transform var(--cds-dur-slow) var(--cds-ease-out),
+                  background var(--cds-dur-slow) var(--cds-ease-out); }
+    .vd-co-click:hover { transform: translateY(-2px); }
+    @keyframes vd-rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .vd-cards > .vd-co { animation: vd-rise var(--cds-dur-slow) var(--cds-ease-out) both; }
+    /* A gentle stagger so a list of five lands one after another rather
+       than all at once. Capped, so a long list never feels slow. */
+    .vd-cards > .vd-co:nth-child(2) { animation-delay: 40ms; }
+    .vd-cards > .vd-co:nth-child(3) { animation-delay: 80ms; }
+    .vd-cards > .vd-co:nth-child(4) { animation-delay: 120ms; }
+    .vd-cards > .vd-co:nth-child(5) { animation-delay: 160ms; }
+    .vd-cards > .vd-co:nth-child(n+6) { animation-delay: 200ms; }
   }
 
   .vd-tiles { display: grid; gap: var(--cds-gap-sm); margin-bottom: var(--cds-gap-lg);
@@ -74,22 +97,33 @@
   /* company cards */
   .vd-cards { display: grid; gap: var(--cds-gap-md);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
-  .vd-co { background: var(--color-panel); border: 1px solid var(--color-border-line);
-    border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0;
+  .vd-co { position: relative; overflow: hidden;
+    background: var(--color-panel); border: 1px solid var(--color-border-line);
+    border-radius: calc(var(--cds-radius) * 2); padding: var(--cds-pad-lg);
+    padding-left: calc(var(--cds-pad-lg) + 4px); min-width: 0;
     display: flex; flex-direction: column; gap: var(--cds-pad-sm); }
+  /* A stripe in the colour of what kind of company it is, so a column of
+     cards can be read by colour before a word of it is. */
+  .vd-co::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px;
+    background: var(--cat, var(--color-border-line)); }
+  .vd-co-click:hover { border-color:
+    color-mix(in srgb, var(--cat, var(--color-fg)) 45%, transparent); }
   .vd-co-top { display: flex; align-items: baseline; gap: var(--cds-pad-sm); flex-wrap: wrap; }
   .vd-co-sym { font-family: var(--font-anthropic-serif); font-weight: 400;
     font-size: var(--cds-font-size-heading); line-height: 1;
     letter-spacing: -0.01em; }
   .vd-co-grade { font-family: var(--font-anthropic-serif); font-weight: 400;
-    font-size: var(--cds-font-size-title); line-height: 1; margin-left: auto;
-    min-width: 1.4em; text-align: right; }
+    font-size: var(--cds-font-size-heading); line-height: 1; margin-left: auto;
+    min-width: 2rem; height: 2rem; display: inline-flex;
+    align-items: center; justify-content: center; border-radius: 999px;
+    background: color-mix(in srgb, currentColor 14%, transparent); }
   .vd-co-name { font-size: var(--cds-font-size-body); color: var(--color-fg);
     margin: 0; line-height: 1.3; }
   .vd-co-what { font-size: var(--cds-font-size-body); color: var(--color-fg);
     opacity: .75; margin: 0; }
   .vd-chip { font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line);
-    border-radius: 999px; padding: 1px 8px; color: var(--color-fg-muted); white-space: nowrap; }
+    border-radius: 999px; padding: 2px 10px; color: var(--color-fg); opacity: .8;
+    white-space: nowrap; }
   .vd-scores { display: grid; gap: 5px; margin-top: var(--cds-pad-xs); }
   .vd-srow { display: grid; grid-template-columns: 5.2rem 1fr 2rem; gap: var(--cds-pad-sm);
     align-items: center; }
@@ -139,13 +173,18 @@
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .vd-sugg-more { padding: 9px 12px; margin: 0;
     font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
-  .vd-chip-cat { border-style: dashed; }
-  .vd-step { margin-bottom: var(--cds-pad-sm); }
+  .vd-chip-cat { border-color: transparent; opacity: 1;
+    background: color-mix(in srgb, var(--cat, var(--color-fg)) 14%, transparent);
+    display: inline-flex; align-items: center; gap: 6px; }
+  .vd-chip-cat::before { content: ''; width: 7px; height: 7px; border-radius: 999px;
+    background: var(--cat, var(--color-fg)); flex: 0 0 auto; }
+  .vd-step { margin-bottom: var(--cds-pad-md); }
   .vd-step-head { display: flex; justify-content: space-between; align-items: baseline;
     gap: var(--cds-pad-sm); font-size: var(--cds-font-size-body); }
   .vd-step-count { font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-  .vd-step-track { display: flex; height: 8px; margin: 4px 0 2px;
-    border-radius: 999px; overflow: hidden; background: var(--color-panel); }
+  .vd-step-track { display: flex; height: 10px; margin: 5px 0 3px;
+    border-radius: 999px; overflow: hidden;
+    background: color-mix(in srgb, var(--color-fg) 7%, transparent); }
   .vd-step-kept, .vd-step-lost { display: block; height: 100%; }
   .vd-step-lost { background: var(--color-border-line); }
   .vd-step-note { margin: 0; font-size: var(--cds-font-size-body);
@@ -162,23 +201,37 @@
     flex: 0 0 auto; }
   .vd-pick { display: flex; align-items: center; flex-wrap: wrap;
     gap: var(--cds-pad-sm); margin-bottom: var(--cds-pad-sm); }
-  .vd-pick > span { font-size: var(--cds-font-size-body); }
+  .vd-pick > span { font-size: var(--cds-font-size-caption);
+    color: var(--color-fg-muted); text-transform: uppercase;
+    letter-spacing: .06em; font-weight: var(--cds-font-weight-medium); }
   .vd-pick select { font: inherit; font-size: var(--cds-font-size-body);
-    padding: 7px 10px; border-radius: var(--cds-radius);
+    font-weight: var(--cds-font-weight-medium);
+    padding: 9px 14px; border-radius: 999px;
     border: 1px solid var(--color-border-line);
-    background: var(--color-bg); color: var(--color-fg); }
+    background-color: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+  .vd-pick select:hover { border-color: var(--color-fg); }
   .vd-why { margin: 0; font-size: var(--cds-font-size-caption);
     color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
-  .vd-open { align-self: start; margin-top: var(--cds-pad-xs); padding: 6px 12px;
-    font: inherit; font-size: var(--cds-font-size-caption); cursor: pointer;
-    background: transparent; color: var(--color-fg);
-    border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); }
-  .vd-open:hover { background: var(--color-bg); }
+  .vd-open { align-self: stretch; margin-top: var(--cds-pad-xs); padding: 9px 14px;
+    font: inherit; font-size: var(--cds-font-size-body);
+    font-weight: var(--cds-font-weight-medium); cursor: pointer;
+    background: color-mix(in srgb, var(--cat, var(--color-fg)) 10%, transparent);
+    color: var(--color-fg); border: 0; border-radius: 999px; }
+  .vd-open:hover { background:
+    color-mix(in srgb, var(--cat, var(--color-fg)) 20%, transparent); }
   /* the full breakdown */
   .vd-deep { border-top: 1px solid var(--color-border-line);
     padding-top: var(--cds-pad-sm); margin-top: var(--cds-pad-sm); }
   .vd-deep > summary { cursor: pointer; font-size: var(--cds-font-size-body);
-    font-weight: var(--cds-font-weight-medium); padding: 4px 0; }
+    font-weight: var(--cds-font-weight-medium); padding: 10px 0;
+    list-style: none; display: flex; align-items: center; gap: var(--cds-pad-xs); }
+  .vd-deep > summary::-webkit-details-marker { display: none; }
+  .vd-deep > summary::before { content: '+'; display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 1.3rem; height: 1.3rem; border-radius: 999px; flex: 0 0 auto;
+    background: color-mix(in srgb, var(--color-fg) 9%, transparent);
+    font-family: var(--font-anthropic-sans); line-height: 1; }
+  .vd-deep[open] > summary::before { content: '\2212'; }
   .vd-deep-head { margin: var(--cds-pad-sm) 0 var(--cds-pad-xs);
     font-size: var(--cds-font-size-caption);
     font-weight: var(--cds-font-weight-medium); }
@@ -589,6 +642,22 @@
   const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : []; };
   const SIZE_WORD = {mega: 'Mega', large: 'Large', mid: 'Mid', small: 'Small', micro: 'Micro', unknown: '—'};
   const SMALLER = new Set(['small', 'micro']);
+  // A colour per kind of company, taken from the runtime's own series
+  // palette so it follows light and dark without a second rule. Colour is
+  // never the only signal: every chip carries its words too.
+  const CATEGORY_COLOUR = {
+    growth: 0, compounder: 2, income: 4, steady: 6,
+    shrinking: 1, speculative: 3, hard_to_value: 5, unclear: 7,
+  };
+  const catColour = (category) => {
+    const i = CATEGORY_COLOUR[category];
+    const palette = dash.colors || [];
+    return i == null ? null : palette[i % palette.length] || palette[0] || null;
+  };
+  const GRADE_TINT = {A: 'var(--color-ok)', B: 'var(--color-ok)',
+                      C: 'var(--color-fg)', D: 'var(--color-warn)',
+                      F: 'var(--color-bad)'};
+
   const CATEGORY_WORD = {
     growth: 'Growing fast', compounder: 'Quality compounder',
     income: 'Pays an income', steady: 'Steady', shrinking: 'Shrinking',
@@ -605,10 +674,6 @@
     const v = row ? num(row.value) : null;
     return v == null ? 'a 10-year Treasury' : fmtN(v) + '% on a 10-year Treasury';
   };
-
-  const gradeColor = (g) => g === 'A' ? 'var(--color-ok)'
-    : g === 'B' ? 'var(--color-ok)' : g === 'C' ? 'var(--color-fg)'
-    : g === 'D' ? 'var(--color-warn)' : 'var(--color-bad)';
 
   const failLine = (el) => { el.replaceChildren(); const d = document.createElement('div');
     d.className = 'vd-fail'; const i = document.createElement('i');
@@ -759,6 +824,8 @@
 
   const companyCard = (row) => {
     const card = document.createElement('div'); card.className = 'vd-co';
+    const tint = catColour(row.category);
+    if (tint) card.style.setProperty('--cat', tint);
     const top = document.createElement('div'); top.className = 'vd-co-top';
     const sym = document.createElement('span'); sym.className = 'vd-co-sym'; sym.textContent = row.symbol;
     const chip = document.createElement('span'); chip.className = 'vd-chip';
@@ -778,7 +845,10 @@
       top.append(loss);
     }
     const grade = document.createElement('span'); grade.className = 'vd-co-grade';
-    grade.textContent = row.grade || '—'; grade.style.color = gradeColor(row.grade);
+    grade.textContent = row.grade || '—';
+    grade.style.color = GRADE_TINT[row.grade] || 'var(--color-fg)';
+    grade.title = 'Overall mark ' + (num(row.overall) == null ? '—' : fmtI(num(row.overall)))
+      + ' out of 100';
     top.append(grade);
 
     const name = document.createElement('p'); name.className = 'vd-co-name'; name.textContent = row.name;
@@ -1455,7 +1525,8 @@
       top.appendChild(loss);
     }
     const grade = document.createElement('span'); grade.className = 'vd-detail-grade';
-    grade.textContent = row.grade || '—'; grade.style.color = gradeColor(row.grade);
+    grade.textContent = row.grade || '—';
+    grade.style.color = GRADE_TINT[row.grade] || 'var(--color-fg)';
     top.appendChild(grade);
 
     const name = document.createElement('p'); name.className = 'vd-co-name';
