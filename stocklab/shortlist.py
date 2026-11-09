@@ -93,11 +93,25 @@ def categorise(m: dict) -> str:
     return "steady"
 
 
+# What kind of thing a condition tests. Missing one is not one thing:
+# a company that fails only on price is a business you would want at a
+# lower price, and the page can say which price. A company that fails
+# because we cannot measure it is not evidence against the company at
+# all -- it is a limit of the tools. Only a business failure is evidence.
+GATE_KINDS = {
+    "integrity": "whether the figures can be trusted",
+    "business": "whether the business is any good",
+    "price": "whether today's price is right",
+    "measurement": "whether we can judge it at all",
+}
+
+
 @dataclass(frozen=True)
 class Gate:
     key: str
     label: str
     why: str
+    kind: str = "business" 
 
 
 # ---- thresholds -----------------------------------------------------------
@@ -160,10 +174,10 @@ def _n(m: dict, key: str, default=None):
 INTEGRITY = (
     Gate("share_count", "We can tell how many shares exist",
          "No two filings agreed on the share count, so every per-share figure "
-         "is unreliable. An understated count looks exactly like a bargain."),
+         "is unreliable. An understated count looks exactly like a bargain.", "integrity"),
     Gate("revenue_known", "Its sales figure survives its own arithmetic",
          "Reported revenue was smaller than reported profit, or otherwise "
-         "could not be reconciled, so every margin and multiple is withheld."),
+         "could not be reconciled, so every margin and multiple is withheld.", "integrity"),
 )
 
 
@@ -178,39 +192,39 @@ def _integrity(m: dict) -> dict[str, bool]:
 # ---- value ----------------------------------------------------------------
 VALUE_GATES = INTEGRITY + (
     Gate("profitable", "It makes a profit",
-         "A business with no earnings cannot be valued on its earnings."),
+         "A business with no earnings cannot be valued on its earnings.", "business"),
     Gate("profits_repeat", "It has made a profit most years, not just lately",
          "Profitable in fewer than four of the last five years. Every model "
          "here is anchored on recent earnings, so one good year after several "
-         "bad ones is read as the normal state of the business."),
+         "bad ones is read as the normal state of the business.", "business"),
     Gate("not_a_windfall", "This year's profit is not a one-off",
          "Operating profit is more than double its own five-year average "
          "without the sales to explain it, so the valuation rests on a "
-         "windfall or a cyclical peak rather than on what it ordinarily earns."),
+         "windfall or a cyclical peak rather than on what it ordinarily earns.", "business"),
     Gate("covered", "Its filings cover most of what we measure",
          "Scored on fewer than fourteen inputs, which is not enough to judge "
-         "a company you intend to hold for years."),
+         "a company you intend to hold for years.", "measurement"),
     Gate("quality", "It is a good business",
-         "Earns too little on the money put into it."),
+         "Earns too little on the money put into it.", "business"),
     Gate("safety", "It could survive a bad year",
          "Carries more debt, or thinner cover, than a company of its size "
          "should. The bar rises as companies get smaller, because a small "
-         "company has less access to capital when a year goes wrong."),
+         "company has less access to capital when a year goes wrong.", "business"),
     Gate("tradeable", "You could actually buy and sell it",
          "Fewer than a million dollars of stock change hands a day, so a "
-         "position is hard to build and harder to leave."),
+         "position is hard to build and harder to leave.", "measurement"),
     Gate("growing", "It is not shrinking",
-         "Sales are flat or falling; time works against you."),
+         "Sales are flat or falling; time works against you.", "business"),
     Gate("beats_treasury", "It is priced to beat a government bond",
          "At today's price the expected return is below a 10-year Treasury, "
-         "which you can have without the risk."),
+         "which you can have without the risk.", "price"),
     Gate("below_fair", "It is not above its fair value estimate",
-         "You would be paying more than the business looks worth."),
+         "You would be paying more than the business looks worth.", "price"),
     Gate("models_agree", "The valuation methods agree with each other",
-         "The methods disagree too widely for the estimate to mean much."),
+         "The methods disagree too widely for the estimate to mean much.", "measurement"),
     Gate("estimate_sane", "The estimate is not wilder than the market",
          "The model says it is worth more than twice its price, which is more "
-         "likely a bad estimate than a bargain."),
+         "likely a bad estimate than a bargain.", "measurement"),
 )
 
 
@@ -247,36 +261,36 @@ def _value(m: dict) -> dict[str, bool]:
 GROWTH_GATES = INTEGRITY + (
     Gate("sustained", "It has grown for years, not for one year",
          "Sales growth over three and five years is not both high. One fast "
-         "year is a comparison against a weak one as often as it is a trend."),
+         "year is a comparison against a weak one as often as it is a trend.", "business"),
     Gate("not_decelerating", "Growth is not falling away",
          "Three-year growth has dropped well below the five-year rate. The "
-         "price of a growth company assumes the growth continues."),
+         "price of a growth company assumes the growth continues.", "business"),
     Gate("steady_climb", "The growth is a climb, not a single jump",
          "Sales do not fit a trend closely, so the total came from one or two "
          "events -- often an acquisition -- rather than from the business "
-         "compounding."),
+         "compounding.", "business"),
     Gate("unit_economics", "It makes money on what it sells",
          "Gross margin is thin or falling as it grows, which means scale is "
-         "not making it more profitable."),
+         "not making it more profitable.", "business"),
     Gate("economics_improving", "Scale is reaching the bottom line",
          "Neither profitable at the operating line nor visibly closing the "
-         "gap. Growth that never becomes profit is just spending."),
+         "gap. Growth that never becomes profit is just spending.", "business"),
     Gate("not_bought_with_stock", "The growth is not paid for by issuing shares",
          "The share count is rising more than 5% a year, so the growth per "
-         "share you own is far smaller than the growth in the business."),
+         "share you own is far smaller than the growth in the business.", "business"),
     Gate("funds_itself", "It can pay for its own growth",
          "Growth plus cash margin falls short of the conventional bar, and it "
-         "does not generate cash or hold enough to fund itself for three years."),
+         "does not generate cash or hold enough to fund itself for three years.", "business"),
     Gate("survivable", "A bad year would not finish it",
          "Too much debt, or too little short-term cover, for a company whose "
-         "value depends on reaching a larger future."),
+         "value depends on reaching a larger future.", "business"),
     Gate("tradeable", "You could actually buy and sell it",
          "Too little stock changes hands each day to build a position in, or "
-         "to leave when the growth stops."),
+         "to leave when the growth stops.", "measurement"),
     Gate("priced_within_record", "The price does not assume more than it has ever done",
          "The share price already implies faster growth than the company has "
          "actually delivered. You would be paying for an acceleration that "
-         "has not happened."),
+         "has not happened.", "price"),
 )
 
 
@@ -318,30 +332,30 @@ SPECULATIVE_GATES = INTEGRITY + (
     # and Duolingo sailed through a list headed "speculative".
     Gate("unproven", "It is genuinely unproven",
          "This company is already profitable and established. Judge it on the "
-         "value or growth screen, where the conditions are stricter."),
+         "value or growth screen, where the conditions are stricter.", "measurement"),
     Gate("has_customers", "People are already buying from it",
          "Sales are absent or not growing quickly. Without revenue there is "
-         "nothing to judge but the story."),
+         "nothing to judge but the story.", "business"),
     Gate("unit_economics", "It makes money on each sale",
          "Gross margin is too thin for scale to ever produce a profit. "
-         "Selling more of this would lose more money."),
+         "Selling more of this would lose more money.", "business"),
     Gate("economics_improving", "The losses are narrowing",
          "The operating margin is not improving, so growth is not bringing it "
-         "closer to funding itself."),
+         "closer to funding itself.", "business"),
     Gate("runway", "It can fund itself for two more years",
          "At the current burn, the cash on hand does not last two years. It "
-         "will have to raise money, probably from a weaker position."),
+         "will have to raise money, probably from a weaker position.", "business"),
     Gate("dilution_bounded", "It is not issuing shares faster than it grows",
          "The share count is rising more than 15% a year, so each raise takes "
-         "a further bite out of whatever you own."),
+         "a further bite out of whatever you own.", "business"),
     Gate("not_priced_as_a_success", "It is not already priced as if it worked",
          "The price is more than fifteen times sales, which already assumes "
-         "the outcome you are speculating on."),
+         "the outcome you are speculating on.", "price"),
     Gate("solvent", "It can pay its bills this year",
-         "Short-term assets do not comfortably cover short-term liabilities."),
+         "Short-term assets do not comfortably cover short-term liabilities.", "business"),
     Gate("tradeable", "You could actually get out",
          "Too little stock changes hands each day. In the one place where "
-         "you are most likely to want to sell quickly, you could not."),
+         "you are most likely to want to sell quickly, you could not.", "measurement"),
 )
 
 
@@ -412,6 +426,32 @@ def assess(m: dict) -> dict:
         if ok:
             passing.append(name)
     out["passes"] = passing
+
+    # What a single miss means, which is not one thing. A company failing
+    # only on price is a business worth owning at a lower price, and the
+    # price that would convert it can be named. One failing only because we
+    # cannot measure it is not evidence against the company. Only a business
+    # failure is evidence.
+    for name, gates in SCREENS.items():
+        verdict = out[name]
+        failed = verdict["failed"]
+        by_key = {g.key: g for g in gates}
+        kinds = {by_key[k].kind for k in failed if k in by_key}
+        verdict["miss_kind"] = (
+            "" if not failed
+            else "business" if "business" in kinds
+            else "integrity" if "integrity" in kinds
+            else "price" if kinds == {"price"}
+            else "measurement")
+        # For a value miss on price alone, the fair value estimate IS the
+        # price at which it would pass.
+        trigger = NAN
+        if name == "value" and failed == ["below_fair"]:
+            fair = m.get("fair_value")
+            if is_num(fair):
+                trigger = float(fair)
+        verdict["trigger_price"] = trigger
+
     # Kept for the page and the stored snapshot: "qualifies" has always meant
     # the value screen, which is the one that answers "buy and hold this".
     out["qualifies"] = "value" in passing

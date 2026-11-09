@@ -358,9 +358,11 @@
 
     <div class="vd-card">
       <p class="vd-label">Nearly there</p>
-      <p class="vd-note">Companies failing exactly one condition on this list, and which
-        one. A price fall or one better quarter moves a name from here onto the list
-        above, so this is the watchlist rather than the buy list.</p>
+      <p class="vd-note">Companies failing exactly one condition &mdash; grouped by what
+        kind of condition it is, because missing one is not one thing. Failing only on
+        <em>price</em> is a business worth owning at a lower price, and the page says
+        which price. Failing because the figures cannot be measured is not evidence
+        against the company at all. Only a failure in the business itself is.</p>
       <div data-draw="near-miss" data-source="companies"></div>
     </div>
   </section>
@@ -926,6 +928,23 @@
     pass.slice(0, HEADLINE).forEach((r) => el.appendChild(companyCard(r)));
   });
 
+  const MISS_GROUPS = [
+    ['price', 'Right business, wrong price',
+     'These clear everything except the price test. Nothing is wrong with the '
+     + 'company; you would be paying too much today. Where the figure can be '
+     + 'worked out, the price at which it would pass is shown.'],
+    ['measurement', 'Cannot be judged from the filings',
+     'These fail only because something could not be measured well enough \u2014 '
+     + 'the valuation methods disagreed, or too few figures were filed. That is a '
+     + 'limit of the tools, not a mark against the company.'],
+    ['business', 'One real weakness',
+     'These fail on the business itself: thin cover, sales going backwards, or '
+     + 'profits that do not repeat. This is the group where the miss is evidence.'],
+    ['integrity', 'The figures do not add up',
+     'Something in the filings could not be reconciled, so the company cannot be '
+     + 'judged until it is.'],
+  ];
+
   dash.draw('near-miss', (el) => {
     const d = dash.data('companies');
     el.replaceChildren();
@@ -935,26 +954,49 @@
     rowsOf('screen').filter((r) => r.screen === screen)
       .forEach((r) => { labels[r.key] = r.label; });
     const near = inOrder(rowsOf('companies')
-      .filter((r) => !passes(r) && missedBy(r) === 1))
-      .slice(0, 12);
+      .filter((r) => !passes(r) && missedBy(r) === 1));
     if (!near.length) {
       const none = document.createElement('p'); none.className = 'vd-miss';
       none.textContent = 'No company is one condition away today.';
       el.appendChild(none); return;
     }
-    const list = document.createElement('ul'); list.className = 'vd-near';
-    near.forEach((r) => {
-      const li = document.createElement('li');
-      const sym = document.createElement('b'); sym.textContent = r.symbol;
-      const nm = document.createElement('span'); nm.className = 'vd-near-name';
-      nm.textContent = r.name;
-      const miss = document.createElement('span'); miss.className = 'vd-near-miss';
-      const key = String(r[screen + '_failed'] || '').split('|')[0];
-      miss.textContent = 'fails: ' + (labels[key] || key).toLowerCase();
-      li.append(sym, nm, miss);
-      list.appendChild(li);
+    MISS_GROUPS.forEach(([kind, title, blurb]) => {
+      const group = near.filter((r) => r[screen + '_miss_kind'] === kind);
+      if (!group.length) return;
+
+      const h = document.createElement('p'); h.className = 'vd-deep-head';
+      h.textContent = title + ' \u2014 ' + group.length;
+      if (kind === 'price') h.style.color = 'var(--color-ok)';
+      if (kind === 'business') h.style.color = 'var(--color-warn)';
+      const note = document.createElement('p'); note.className = 'vd-note';
+      note.textContent = blurb;
+      el.append(h, note);
+
+      const list = document.createElement('ul'); list.className = 'vd-near';
+      group.slice(0, 12).forEach((r) => {
+        const li = document.createElement('li');
+        const sym = document.createElement('b'); sym.textContent = r.symbol;
+        const nm = document.createElement('span'); nm.className = 'vd-near-name';
+        nm.textContent = r.name;
+        const miss = document.createElement('span'); miss.className = 'vd-near-miss';
+        const key = String(r[screen + '_failed'] || '').split('|')[0];
+        const trigger = num(r[screen + '_trigger_price']);
+        const px = num(r.price);
+        miss.textContent = (trigger != null && px != null && trigger < px)
+          ? 'passes at ' + dollars(trigger) + ', ' + fmtPct((px - trigger) / px) + ' below'
+          : (labels[key] || key).toLowerCase();
+        if (trigger != null) miss.style.color = 'var(--color-fg-muted)';
+        li.append(sym, nm, miss);
+        list.appendChild(li);
+      });
+      if (group.length > 12) {
+        const more = document.createElement('li');
+        const sp = document.createElement('span'); sp.className = 'vd-near-name';
+        sp.textContent = (group.length - 12) + ' more in this group.';
+        more.appendChild(sp); list.appendChild(more);
+      }
+      el.appendChild(list);
     });
-    el.appendChild(list);
   });
 
   dash.draw('top-cards', (el) => {

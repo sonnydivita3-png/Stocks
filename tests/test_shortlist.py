@@ -362,3 +362,56 @@ class TestNearnessToAnAverageIsNotAlwaysSupport:
         rise = [50 + i * 0.12 for i in range(312)]
         setup = pullback_to_trend(self._frame(rise), ma_window=50)
         assert 0.0 <= setup.confidence <= 100.0
+
+
+class TestMissingOneConditionIsNotOneThing:
+    """A company failing only the price test is a business worth owning at a
+    lower price. One failing only because the valuation methods disagreed is
+    not evidence against the company -- it is a limit of the tools. Only a
+    business failure is evidence, and lumping all three together as "nearly
+    there" hid the difference."""
+
+    BASE = dict(TestThreeScreensNotOne.GROWER, profitable=True, coverage=16,
+                quality=80.0, growth=70.0, safety=75.0, price=72.0,
+                fair_value=120.0, margin_of_safety=0.15,
+                implied_equity_premium=0.04, confidence="moderate",
+                profitable_years=5.0, profitable_years_of=5.0,
+                earnings_vs_own_average=1.2)
+
+    def test_a_passing_company_has_no_miss(self):
+        assert assess(self.BASE)["value"]["miss_kind"] == ""
+
+    def test_too_expensive_reads_as_a_price_miss(self):
+        v = assess({**self.BASE, "margin_of_safety": -0.10})["value"]
+        assert v["miss_kind"] == "price"
+
+    def test_the_price_that_would_convert_it_is_named(self):
+        """Coca-Cola fails only on price; the fair value estimate IS the
+        price at which it would pass."""
+        v = assess({**self.BASE, "margin_of_safety": -0.10,
+                    "fair_value": 57.07})["value"]
+        assert v["trigger_price"] == pytest.approx(57.07)
+
+    def test_an_unmeasurable_company_is_not_marked_against(self):
+        v = assess({**self.BASE, "confidence": "low"})["value"]
+        assert v["miss_kind"] == "measurement"
+
+    def test_a_weak_balance_sheet_reads_as_a_business_miss(self):
+        v = assess({**self.BASE, "safety": 30.0})["value"]
+        assert v["miss_kind"] == "business"
+
+    def test_a_business_failure_outranks_a_price_one(self):
+        """Failing both, the business failure is what the reader needs to
+        see; a price that would fix it is beside the point."""
+        v = assess({**self.BASE, "safety": 30.0, "margin_of_safety": -0.2})["value"]
+        assert v["miss_kind"] == "business"
+
+    def test_no_trigger_price_is_offered_for_a_business_failure(self):
+        v = assess({**self.BASE, "safety": 30.0})["value"]
+        assert math.isnan(v["trigger_price"])
+
+    def test_every_condition_is_classified(self):
+        from stocklab.shortlist import GATE_KINDS, SCREENS
+        for gates in SCREENS.values():
+            for gate in gates:
+                assert gate.kind in GATE_KINDS, gate.key

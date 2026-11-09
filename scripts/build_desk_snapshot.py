@@ -78,7 +78,9 @@ COLUMNS = [
     "value_qualifies", "value_passed", "value_total", "value_failed",
     "growth_qualifies", "growth_passed", "growth_total", "growth_failed",
     "speculative_qualifies", "speculative_passed", "speculative_total",
-    "speculative_failed", "from_52w_high",
+    "speculative_failed", "value_miss_kind", "growth_miss_kind",
+    "speculative_miss_kind", "value_trigger_price", "growth_trigger_price",
+    "speculative_trigger_price", "from_52w_high",
     "momentum_12_1", "vol63", "dollar_volume_50d", "years_of_data",
     "sma50", "sma200", "dist_sma50", "dist_sma200", "sma200_rising",
     "above_sma200", "rsi14", "at_sma50", "at_sma200",
@@ -291,6 +293,8 @@ def analyse(symbol: str) -> dict | None:
         row[f"{name}_passed"] = v["passed"]
         row[f"{name}_total"] = v["total"]
         row[f"{name}_failed"] = "|".join(v["failed"])
+        row[f"{name}_miss_kind"] = v["miss_kind"]
+        row[f"{name}_trigger_price"] = num(v["trigger_price"])
     row["passes"] = "|".join(verdict["passes"])
     # The bare names mean the value screen, as they did when there was one.
     row["qualifies"] = verdict["qualifies"]
@@ -333,7 +337,7 @@ def write_csvs(out_dir: Path, record: dict) -> None:
     # qualifies, this is the answer, not an empty list.
     with (out_dir / "screen.csv").open("w", newline="") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["screen", "step", "key", "label", "why_it_fails",
+        writer.writerow(["screen", "step", "key", "kind", "label", "why_it_fails",
                          "survivors", "eliminated"])
         for screen, gates in SCREENS.items():
             alive = list(companies)
@@ -342,8 +346,8 @@ def write_csvs(out_dir: Path, record: dict) -> None:
                 failed_key = f"{screen}_failed"
                 alive = [c for c in alive
                          if gate.key not in (c.get(failed_key) or "").split("|")]
-                writer.writerow([screen, step, gate.key, gate.label, gate.why,
-                                 len(alive), before - len(alive)])
+                writer.writerow([screen, step, gate.key, gate.kind, gate.label,
+                                 gate.why, len(alive), before - len(alive)])
 
     with (out_dir / "counts.csv").open("w", newline="") as fh:
         writer = csv.writer(fh)
