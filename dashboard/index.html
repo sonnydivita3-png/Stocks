@@ -1,7 +1,49 @@
 <meta name="dash-one-writer">
 <style>
-  .vd { font-family: var(--font-anthropic-sans);
-    max-width: 68rem; margin-inline: auto; line-height: 1.5; }
+  /* A light sheet, whatever the app around it is set to. The system's
+     tokens follow the app theme, so to hold one theme the page redefines
+     them on its own wrapper -- every rule below still reads a token, so
+     there is exactly one place where a colour is decided. */
+  .vd {
+    --color-bg: #fbfaf8;
+    --color-panel: #ffffff;
+    --color-fg: #1c1a17;
+    --color-fg-muted: #6a635c;
+    --color-border-line: #e6e1d9;
+    --color-ok: #117a53;
+    --color-warn: #a4601a;
+    --color-bad: #b4332a;
+    --cds-chart-grid: #ece7df;
+    --cds-chart-reference: #cfc7bb;
+    --cds-chart-muted: #b8b0a5;
+    --cds-surface-popover: #ffffff;
+    --cds-border: #e6e1d9;
+    --cds-text-secondary: #6a635c;
+    --cds-shadow-popover: 0 2px 8px rgba(28, 26, 23, .10);
+
+    font-family: var(--font-anthropic-sans);
+    max-width: 68rem; margin-inline: auto; line-height: 1.5;
+    color: var(--color-fg);
+    background: var(--color-bg);
+    border-radius: calc(var(--cds-radius) * 2);
+    padding: var(--cds-pad-lg);
+    /* The sheet runs a little past the app's gutter so it reads as the
+       surface of the page rather than a card floating on it. */
+    margin-block: calc(var(--cds-pad-sm) * -1);
+  }
+  /* Series colours come from the runtime and follow the app theme, which
+     would be the dark set inside a dark app. Fixed accents keep the sheet
+     coherent; these are the validated light-mode hues. */
+  .vd {
+    --accent-1: #2a78d6;
+    --accent-2: #eb6834;
+    --accent-3: #1baf7a;
+    --accent-4: #8a5cd1;
+    --accent-5: #c2991c;
+    --accent-6: #1f9aa8;
+    --accent-7: #d4517f;
+    --accent-8: #6b7280;
+  }
   .vd :is(h1, h2, h3) { text-wrap: balance; }
   .vd-head { display: flex; flex-direction: column; gap: var(--cds-pad-xs);
     margin-bottom: var(--cds-gap-md); }
@@ -210,6 +252,8 @@
     border: 1px solid var(--color-border-line);
     background-color: var(--color-bg); color: var(--color-fg); cursor: pointer; }
   .vd-pick select:hover { border-color: var(--color-fg); }
+  .vd-link { color: var(--accent-1); text-decoration: underline;
+    text-underline-offset: 2px; cursor: pointer; }
   .vd-why { margin: 0; font-size: var(--cds-font-size-caption);
     color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
   .vd-open { align-self: stretch; margin-top: var(--cds-pad-xs); padding: 9px 14px;
@@ -363,22 +407,10 @@
   </div>
   <section class="vd-section">
     <h2>Worth buying right now</h2>
-    <p class="vd-note">A grade is an <em>average</em> of four marks &mdash; so a company
-      can be brilliant at three things, wildly overpriced at the fourth, and still come
-      out looking good. That is fine for asking &ldquo;is this a decent business?&rdquo;
-      and useless for asking &ldquo;should I buy it, today, at this price?&rdquo; These
-      lists answer the second question differently: a checklist where
-      <b>every single box has to be ticked</b>. Being great at one thing does not excuse
-      being terrible at another.</p>
-    <p class="vd-note"><b>There are three lists, because there are three different
-      reasons to buy a share and you cannot judge them the same way.</b> Demand a bargain
-      price from a fast-growing company and you will never buy one. Demand a five-year
-      profit record from a young company and you have ruled it out before you started. So
-      each list asks what actually matters for that kind of company.</p>
-    <p class="vd-note">A short list is a real answer, not a broken page. When good
-      companies are expensive, hardly anything gets through &mdash; and that is worth
-      knowing before you buy. The steps below show exactly where today&rsquo;s market
-      runs out of candidates.</p>
+    <p class="vd-note">A checklist, not a score. Every box has to be ticked &mdash;
+      being brilliant at one thing does not excuse being poor at another. Three lists,
+      because a bargain, a fast grower and a long shot cannot be judged the same way.
+      <a class="vd-link" href="#about" data-goto="about">How this works</a></p>
 
     <div class="vd-card">
       <label class="vd-pick">
@@ -410,22 +442,24 @@
     </div>
 
     <div class="vd-card">
-      <p class="vd-label">Where companies fall out</p>
-      <p class="vd-note">Each test is run on whoever survived the one before. The big
-        drops tell you what today&rsquo;s market is short of.</p>
-      <div data-draw="funnel" data-source="screen"></div>
+      <details class="vd-deep">
+        <summary>Where the others fell out</summary>
+        <p class="vd-note">Each test is run on whoever survived the one before. The big
+          drops tell you what today&rsquo;s market is short of.</p>
+        <div data-draw="funnel" data-source="screen"></div>
+      </details>
     </div>
 
     <div class="vd-cards" data-draw="qualify-cards" data-source="companies"></div>
 
     <div class="vd-card">
-      <p class="vd-label">So close</p>
-      <p class="vd-note">Companies failing exactly one condition &mdash; grouped by what
-        kind of condition it is, because missing one is not one thing. Failing only on
-        <em>price</em> is a business worth owning at a lower price, and the page says
-        which price. Failing because the figures cannot be measured is not evidence
-        against the company at all. Only a failure in the business itself is.</p>
-      <div data-draw="near-miss" data-source="companies"></div>
+      <details class="vd-deep">
+        <summary>So close &mdash; the near misses</summary>
+        <p class="vd-note">One box away, grouped by which kind. Missing only on
+          <em>price</em> means a good business at the wrong price, and we say what price
+          would do it. Only a failure in the business itself counts against a company.</p>
+        <div data-draw="near-miss" data-source="companies"></div>
+      </details>
     </div>
   </section>
   <section class="vd-section">
@@ -444,8 +478,7 @@
   <div class="vd-panel" id="browse" data-panel="browse" hidden>
   <section class="vd-section">
     <h2>Have a browse</h2>
-    <p class="vd-note">The ten best in whichever group you pick. Changing the group
-      changes which companies you see, never the analysis behind them.</p>
+    <p class="vd-note">The ten best in whichever group you pick.</p>
     <div class="vd-card">
       <label class="vd-pick">
         <span>Show the top ten</span>
@@ -486,10 +519,8 @@
   <div class="vd-panel" id="lookup" data-panel="lookup" hidden>
   <section class="vd-section">
     <h2>Look up any company</h2>
-    <p class="vd-note">Type a ticker or a company name, tap a suggestion, and you get
-      the full story: the same four marks used everywhere else, every test it passes or
-      fails, what each of our six pricing methods thinks it is worth, five years of sales
-      and profit, and where the share price sits right now.</p>
+    <p class="vd-note">Any of the 515. Type a ticker or a name for the full
+      breakdown.</p>
     <div class="vd-card">
       <div class="vd-search">
         <input type="search" id="vd-query" autocomplete="off" spellcheck="false"
@@ -649,10 +680,11 @@
     growth: 0, compounder: 2, income: 4, steady: 6,
     shrinking: 1, speculative: 3, hard_to_value: 5, unclear: 7,
   };
+  // The page holds one theme, so its accents are its own rather than the
+  // runtime's theme-following series colours.
   const catColour = (category) => {
     const i = CATEGORY_COLOUR[category];
-    const palette = dash.colors || [];
-    return i == null ? null : palette[i % palette.length] || palette[0] || null;
+    return i == null ? null : 'var(--accent-' + ((i % 8) + 1) + ')';
   };
   const GRADE_TINT = {A: 'var(--color-ok)', B: 'var(--color-ok)',
                       C: 'var(--color-fg)', D: 'var(--color-warn)',
@@ -717,7 +749,7 @@
     const v = num(value);
     i.style.width = Math.max(0, Math.min(100, v ?? 0)) + '%';
     i.style.background = v == null ? 'var(--cds-chart-grid)'
-      : v >= 65 ? 'var(--color-ok)' : v >= 45 ? dash.colors[0] : 'var(--color-warn)';
+      : v >= 65 ? 'var(--color-ok)' : v >= 45 ? 'var(--accent-1)' : 'var(--color-warn)';
     t.appendChild(i);
     const n = document.createElement('span'); n.className = 'n';
     n.textContent = v == null ? '—' : fmtI(v);
@@ -764,7 +796,7 @@
     return box;
   };
 
-  const valueBlock = (row) => {
+  const valueBlock = (row, full = true) => {
     const box = document.createElement('div'); box.className = 'vd-value';
     const fair = num(row.fair_value);
     const px = num(row.price);
@@ -801,6 +833,7 @@
         'too little profit history to put a value on it'));
     }
 
+    if (!full) return box;      // the card shows the price line only
     if (erp != null) {
       // A floored figure is the boundary of what the model can express, not a
       // measurement. Several expensive companies share the same floor, so
@@ -861,12 +894,21 @@
       scoreRow('Quality', row.quality), scoreRow('Growth', row.growth),
       scoreRow('Safety', row.safety), scoreRow('Price', row.price_score));
 
+    // One sentence, not four. The card answers "is this worth opening"; the
+    // breakdown behind it answers everything else. Four sentences on every
+    // card turned a list of five companies into a page of scrolling.
     const says = document.createElement('div'); says.className = 'vd-says';
-    [row.say_quality, row.say_growth, row.say_safety, row.say_price].forEach((text) => {
-      if (!text) return;
-      const s = document.createElement('span'); s.textContent = text; says.appendChild(s);
-    });
-    card.append(top, name, what, scores, valueBlock(row), entryLine(row), says);
+    const headline = row.say_price || row.say_quality || row.say_growth;
+    if (headline) {
+      const one = document.createElement('span'); one.textContent = headline;
+      says.appendChild(one);
+    }
+    card.append(top, name, what, scores, valueBlock(row, false), says);
+    // The price line earns its place only when it says something actionable.
+    if (String(row.at_sma50).toLowerCase() === 'true'
+        || String(row.at_sma200).toLowerCase() === 'true') {
+      card.appendChild(entryLine(row));
+    }
 
     const why = sortNote(row);
     if (why) {
@@ -948,7 +990,7 @@
       const track = document.createElement('div'); track.className = 'vd-step-track';
       const kept = document.createElement('span'); kept.className = 'vd-step-kept';
       kept.style.width = (100 * left / start) + '%';
-      kept.style.background = dash.colors[0];
+      kept.style.background = 'var(--accent-1)';
       const lost = document.createElement('span'); lost.className = 'vd-step-lost';
       lost.style.width = (100 * gone / start) + '%';
       track.append(kept, lost);
@@ -1188,6 +1230,13 @@
     });
     if (dash.setLink) dash.setLink(name);
   };
+  document.querySelectorAll('[data-goto]').forEach((link) => {
+    link.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      showTab(link.getAttribute('data-goto'));
+    });
+  });
+
   document.querySelectorAll('.vd-sort').forEach((sel) => {
     sel.addEventListener('change', () => {
       sortBy = SORTS[sel.value] ? sel.value : 'grade';
@@ -1403,7 +1452,7 @@
       const bar = document.createElement('span'); bar.className = 'vd-model-bar';
       const fill = document.createElement('i');
       fill.style.width = (100 * v / top) + '%';
-      fill.style.background = (px != null && v >= px) ? 'var(--color-ok)' : dash.colors[1];
+      fill.style.background = (px != null && v >= px) ? 'var(--color-ok)' : 'var(--accent-2)';
       bar.appendChild(fill);
       const amt = document.createElement('b'); amt.className = 'vd-model-val';
       amt.textContent = dollars(v);
