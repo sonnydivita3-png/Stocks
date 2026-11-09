@@ -1,7 +1,7 @@
 <meta name="dash-one-writer">
 <style>
   .vd { font-family: var(--font-anthropic-sans);
-    max-width: 68rem; margin-inline: auto; }
+    max-width: 68rem; margin-inline: auto; line-height: 1.5; }
   .vd :is(h1, h2, h3) { text-wrap: balance; }
   .vd-head { display: flex; flex-direction: column; gap: var(--cds-pad-xs);
     margin-bottom: var(--cds-gap-md); }
@@ -53,7 +53,8 @@
   .vd-section > .vd-note:first-of-type { max-width: 44rem; }
   .vd-section > h2 { font-size: var(--cds-font-size-heading);
     font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-pad-xs); }
-  .vd-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
+  .vd-note { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    line-height: 1.5; opacity: .9;
     margin: 0 0 var(--cds-pad-md); max-width: 62ch; }
 
   /* the explainer, kept open at the top rather than buried at the foot */
@@ -61,7 +62,8 @@
     border-radius: var(--cds-radius); padding: var(--cds-pad-lg); margin-bottom: var(--cds-gap-lg); }
   .vd-explain h2 { font-size: var(--cds-font-size-body);
     font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-pad-sm); }
-  .vd-explain p { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
+  .vd-explain p { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    line-height: 1.5;
     margin: 0 0 var(--cds-pad-sm); max-width: 70ch; }
   .vd-pillars { display: grid; gap: var(--cds-gap-sm); margin-top: var(--cds-pad-md);
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
@@ -84,21 +86,24 @@
     min-width: 1.4em; text-align: right; }
   .vd-co-name { font-size: var(--cds-font-size-body); color: var(--color-fg);
     margin: 0; line-height: 1.3; }
-  .vd-co-what { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0; }
+  .vd-co-what { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    opacity: .75; margin: 0; }
   .vd-chip { font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line);
     border-radius: 999px; padding: 1px 8px; color: var(--color-fg-muted); white-space: nowrap; }
   .vd-scores { display: grid; gap: 5px; margin-top: var(--cds-pad-xs); }
   .vd-srow { display: grid; grid-template-columns: 5.2rem 1fr 2rem; gap: var(--cds-pad-sm);
     align-items: center; }
-  .vd-srow .k { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-srow .k { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    opacity: .85; }
   .vd-srow .t { height: 7px; border-radius: 999px; background: var(--cds-chart-grid);
     overflow: hidden; }
   .vd-srow .t > i { display: block; height: 100%; border-radius: 999px; }
-  .vd-srow .n { font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums;
-    text-align: right; color: var(--color-fg-muted); }
+  .vd-srow .n { font-size: var(--cds-font-size-body); font-variant-numeric: tabular-nums;
+    text-align: right; color: var(--color-fg); }
   .vd-says { display: grid; gap: 3px; margin-top: var(--cds-pad-xs);
     border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-sm); }
-  .vd-says span { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-says span { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    line-height: 1.45; }
 
   /* look-up panel */
   .vd-search { display: flex; gap: var(--cds-pad-sm); flex-wrap: wrap;
@@ -143,16 +148,16 @@
     border-radius: 999px; overflow: hidden; background: var(--color-panel); }
   .vd-step-kept, .vd-step-lost { display: block; height: 100%; }
   .vd-step-lost { background: var(--color-border-line); }
-  .vd-step-note { margin: 0; font-size: var(--cds-font-size-caption);
-    color: var(--color-fg-muted); }
+  .vd-step-note { margin: 0; font-size: var(--cds-font-size-body);
+    color: var(--color-fg); opacity: .85; line-height: 1.4; }
   .vd-near { list-style: none; margin: 0; padding: 0; display: grid;
     gap: var(--cds-pad-xs); }
   .vd-near li { display: flex; flex-wrap: wrap; align-items: baseline;
     gap: var(--cds-pad-xs) var(--cds-pad-sm);
     padding-bottom: var(--cds-pad-xs);
     border-bottom: 1px solid var(--color-border-line); }
-  .vd-near-name { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption);
-    flex: 1 1 8rem; }
+  .vd-near-name { color: var(--color-fg); opacity: .85;
+    font-size: var(--cds-font-size-body); flex: 1 1 8rem; }
   .vd-near-miss { font-size: var(--cds-font-size-caption); color: var(--color-warn);
     flex: 0 0 auto; }
   .vd-pick { display: flex; align-items: center; flex-wrap: wrap;
@@ -179,8 +184,8 @@
     font-weight: var(--cds-font-weight-medium); }
   .vd-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
   .vd-checks li { display: grid; grid-template-columns: 1.1rem 1fr;
-    gap: var(--cds-pad-xs); font-size: var(--cds-font-size-caption);
-    align-items: baseline; }
+    gap: var(--cds-pad-xs); font-size: var(--cds-font-size-body);
+    line-height: 1.45; align-items: baseline; }
   .vd-checks b { font-weight: 400; }
   .vd-check-yes b { color: var(--color-ok); }
   .vd-check-no b { color: var(--color-warn); }
@@ -199,8 +204,8 @@
   .vd-model-val { text-align: right; font-variant-numeric: tabular-nums;
     font-weight: var(--cds-font-weight-medium); }
   .vd-model-why { grid-column: 1 / -1; color: var(--color-fg-muted); }
-  .vd-entry { margin: 0; font-size: var(--cds-font-size-caption);
-    color: var(--color-fg-muted); }
+  .vd-entry { margin: 0; font-size: var(--cds-font-size-body);
+    color: var(--color-fg); line-height: 1.45; opacity: .9; }
   .vd-entry b { color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
   .vd-entry-on b { color: var(--color-ok); }
   .vd-value { display: grid; gap: 4px; padding: var(--cds-pad-sm) 0;
@@ -208,12 +213,13 @@
     border-bottom: 1px solid var(--color-border-line); }
   .vd-value-line { display: grid; grid-template-columns: 1fr auto; column-gap: var(--cds-pad-sm);
     align-items: baseline; }
-  .vd-value-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .vd-value-label { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    opacity: .85; }
   .vd-value-num { font-variant-numeric: tabular-nums; }
-  .vd-value-note { grid-column: 1 / -1; font-size: var(--cds-font-size-caption);
-    color: var(--color-fg-muted); }
-  .vd-miss { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted);
-    margin: 0; }
+  .vd-value-note { grid-column: 1 / -1; font-size: var(--cds-font-size-body);
+    color: var(--color-fg); line-height: 1.4; opacity: .9; }
+  .vd-miss { font-size: var(--cds-font-size-body); color: var(--color-fg);
+    opacity: .9; line-height: 1.5; margin: 0; }
   .vd-detail { display: grid; gap: var(--cds-gap-md); }
   .vd-detail-top { display: flex; align-items: baseline; gap: var(--cds-pad-sm);
     flex-wrap: wrap; }
@@ -260,7 +266,7 @@
 
 <div class="vd">
   <header class="vd-head">
-    <h1>Which companies look worth a closer look</h1>
+    <h1>Which companies are worth a look</h1>
     <p class="vd-takeaway" data-draw="takeaway">—</p>
     <p class="vd-rank">Figures as of <span data-draw="as-of" data-source="counts"
       data-field="value" data-where="metric=as_of">—</span>, rebuilt every Sunday evening. This page
@@ -271,7 +277,7 @@
     <button type="button" class="vd-tab" data-tab="buy" aria-current="page">Worth buying</button>
     <button type="button" class="vd-tab" data-tab="browse">Browse</button>
     <button type="button" class="vd-tab" data-tab="lookup">Look up</button>
-    <button type="button" class="vd-tab" data-tab="about">How it works</button>
+    <button type="button" class="vd-tab" data-tab="about">What it all means</button>
   </nav>
 
   <div class="vd-panel" id="buy" data-panel="buy">
@@ -303,61 +309,64 @@
     </div>
   </div>
   <section class="vd-section">
-    <h2>Worth buying now</h2>
-    <p class="vd-note">The grade below is an <em>average</em> of four scores, so a company
-      can be excellent at three things, badly overpriced at the fourth, and still come out
-      with a good grade. That is the right way to ask &ldquo;is this a sound
-      business?&rdquo; and the wrong way to ask &ldquo;should I buy it, at this
-      price?&rdquo; These lists ask the second question a different way: a set of
-      conditions, <b>every one of which has to hold</b>. Nothing makes up for anything.</p>
-    <p class="vd-note"><b>There are three lists, because there are three ways a share can
-      be worth buying and they are not judged alike.</b> Asking a fast-growing company for
-      a discount to a no-growth valuation is how you never buy one; asking an unproven
-      company for a five-year profit record rules it out by definition. So each is asked
-      what actually matters for it.</p>
-    <p class="vd-note">Finding few companies is a real answer, not a broken screen. The
-      steps below show exactly where today&rsquo;s market stops qualifying.</p>
+    <h2>Worth buying right now</h2>
+    <p class="vd-note">A grade is an <em>average</em> of four marks &mdash; so a company
+      can be brilliant at three things, wildly overpriced at the fourth, and still come
+      out looking good. That is fine for asking &ldquo;is this a decent business?&rdquo;
+      and useless for asking &ldquo;should I buy it, today, at this price?&rdquo; These
+      lists answer the second question differently: a checklist where
+      <b>every single box has to be ticked</b>. Being great at one thing does not excuse
+      being terrible at another.</p>
+    <p class="vd-note"><b>There are three lists, because there are three different
+      reasons to buy a share and you cannot judge them the same way.</b> Demand a bargain
+      price from a fast-growing company and you will never buy one. Demand a five-year
+      profit record from a young company and you have ruled it out before you started. So
+      each list asks what actually matters for that kind of company.</p>
+    <p class="vd-note">A short list is a real answer, not a broken page. When good
+      companies are expensive, hardly anything gets through &mdash; and that is worth
+      knowing before you buy. The steps below show exactly where today&rsquo;s market
+      runs out of candidates.</p>
 
     <div class="vd-card">
       <label class="vd-pick">
-        <span>I am looking for</span>
+        <span>Show me</span>
         <select class="dash-select" id="vd-screen" aria-label="Which kind of buy">
-          <option value="value">a sound business at a discount</option>
+          <option value="value">a solid business going cheap</option>
           <option value="growth">a company growing fast</option>
-          <option value="speculative">an unproven company worth a small bet</option>
+          <option value="speculative">a long shot worth a small bet</option>
         </select>
       </label>
       <p class="vd-note" data-draw="screen-note" data-source="companies">&mdash;</p>
       <label class="vd-pick">
-        <span>Order by</span>
+        <span>Sort by</span>
         <select class="dash-select vd-sort" aria-label="How to order the list">
-          <option value="grade">best grade first</option>
-          <option value="balanced">most balanced first</option>
-          <option value="cheap">cheapest against fair value</option>
-          <option value="premium">most expected return above a Treasury</option>
-          <option value="growth">fastest sales growth</option>
+          <option value="grade">best marks first</option>
+          <option value="balanced">no weak spots first</option>
+          <option value="cheap">biggest bargain first</option>
+          <option value="premium">most expected return first</option>
+          <option value="growth">fastest growing first</option>
         </select>
       </label>
 
-      <p class="vd-label">Clear every condition today</p>
+      <p class="vd-label">Tick every box today</p>
       <b class="vd-big" data-draw="count-qualify" data-source="companies">&mdash;</b>
       <p class="vd-sub">out of <span data-draw="count-of" data-source="counts"
         data-field="value" data-where="metric=total">&mdash;</span> companies examined
         &middot; <span data-draw="count-near" data-source="companies">&mdash;</span>
-        more fail exactly one</p>
+        are one box away</p>
     </div>
 
     <div class="vd-card">
-      <p class="vd-label">Where companies drop out</p>
-      <p class="vd-note">Each condition is applied to whatever survived the one before it.
-        The big falls are where the market is tight.</p>
+      <p class="vd-label">Where companies fall out</p>
+      <p class="vd-note">Each test is run on whoever survived the one before. The big
+        drops tell you what today&rsquo;s market is short of.</p>
       <div data-draw="funnel" data-source="screen"></div>
     </div>
 
     <div class="vd-cards" data-draw="qualify-cards" data-source="companies"></div>
 
     <div class="vd-card">
-      <p class="vd-label">Nearly there</p>
+      <p class="vd-label">So close</p>
       <p class="vd-note">Companies failing exactly one condition &mdash; grouped by what
         kind of condition it is, because missing one is not one thing. Failing only on
         <em>price</em> is a business worth owning at a lower price, and the page says
@@ -367,7 +376,7 @@
     </div>
   </section>
   <section class="vd-section">
-    <h2>Highest scoring overall</h2>
+    <h2>Best marks overall</h2>
     <p class="vd-note">Ranked by the combined score. These are the companies where good
       business quality, growth, a sound balance sheet and a reasonable price coincide most
       closely today. Bars run from 0 to 100.</p>
@@ -381,10 +390,9 @@
 
   <div class="vd-panel" id="browse" data-panel="browse" hidden>
   <section class="vd-section">
-    <h2>Browse by type</h2>
-    <p class="vd-note">The ten best in whichever group you pick, ranked by their weakest
-      score so that nothing on a list is badly weak anywhere. Changing the group changes
-      which companies you are looking at, never the analysis behind them.</p>
+    <h2>Have a browse</h2>
+    <p class="vd-note">The ten best in whichever group you pick. Changing the group
+      changes which companies you see, never the analysis behind them.</p>
     <div class="vd-card">
       <label class="vd-pick">
         <span>Show the top ten</span>
@@ -424,10 +432,11 @@
 
   <div class="vd-panel" id="lookup" data-panel="lookup" hidden>
   <section class="vd-section">
-    <h2>Look up a company</h2>
-    <p class="vd-note">Type a ticker symbol or a company name, then tap a suggestion or
-      press Analyse. You will get the same four scores and the same grade used everywhere
-      else on this page.</p>
+    <h2>Look up any company</h2>
+    <p class="vd-note">Type a ticker or a company name, tap a suggestion, and you get
+      the full story: the same four marks used everywhere else, every test it passes or
+      fails, what each of our six pricing methods thinks it is worth, five years of sales
+      and profit, and where the share price sits right now.</p>
     <div class="vd-card">
       <div class="vd-search">
         <input type="search" id="vd-query" autocomplete="off" spellcheck="false"
@@ -446,36 +455,42 @@
 
   <div class="vd-panel" id="about" data-panel="about" hidden>
   <div class="vd-explain">
-    <h2>How to read this page</h2>
-    <p>Every company here is scored out of 100 on four things, from the figures it
-      files with the regulator. The scores are then combined into one grade from A to F.
-      A high grade means a company is good at its business, growing, not heavily in debt,
-      and not obviously overpriced today.</p>
-    <p><b>A grade is not a prediction.</b> It describes the company as it is now. It cannot
-      know what a business will do next, and the market may already expect everything the
-      numbers show.</p>
+    <h2>What all this means</h2>
+    <p>Every company here gets marked out of 100 on four things, using only the
+      numbers it files with the regulator. Those four marks become a single grade from
+      A to F. A high grade means a company that is good at making money, growing, not
+      drowning in debt, and not obviously overpriced today.</p>
+    <p><b>A grade is not a crystal ball.</b> It describes the company as it is today.
+      It has no idea what happens next, and everything it can see, everyone else can see
+      too &mdash; which is usually already in the price.</p>
     <div class="vd-pillars">
-      <div class="vd-pillar"><b>Business quality</b>
-        <span>How much profit it earns on the money put into it. Higher is better.</span></div>
-      <div class="vd-pillar"><b>Growth</b>
-        <span>How fast sales are rising, and how steadily rather than in one lucky year.</span></div>
-      <div class="vd-pillar"><b>Financial safety</b>
-        <span>How much it owes, and whether it could survive a bad year.</span></div>
-      <div class="vd-pillar"><b>Price</b>
-        <span>Whether today's share price looks sensible for what the business earns.</span></div>
-      <div class="vd-pillar"><b>Fair value estimate</b>
-        <span>What the share looks worth on the cash the business is likely to produce,
-        next to what it costs today. An estimate, not a target.</span></div>
-      <div class="vd-pillar"><b>Return above Treasury</b>
-        <span>How much more per year you would earn at today's price than by lending the
-        money to the US government, if the business performs as its history suggests.</span></div>
+      <div class="vd-pillar"><b>Good at making money</b>
+        <span>How much profit it squeezes out of every dollar put into it. A great
+        business turns a dollar into 25 cents a year. A poor one turns it into two.</span></div>
+      <div class="vd-pillar"><b>Getting bigger</b>
+        <span>How fast sales are climbing &mdash; and whether it is a steady climb or
+        one lucky year flattering the average.</span></div>
+      <div class="vd-pillar"><b>Able to take a punch</b>
+        <span>How much it owes and what it holds in reserve. Plenty of good companies
+        have gone under in a bad year simply because they owed too much.</span></div>
+      <div class="vd-pillar"><b>Sensibly priced</b>
+        <span>Whether today's share price is reasonable for what the business actually
+        earns. A wonderful company at a silly price is still a poor buy.</span></div>
+      <div class="vd-pillar"><b>What it looks worth</b>
+        <span>Our estimate of a fair price, based on the cash the business is likely to
+        throw off, next to what it actually costs today. An estimate, not a target.</span></div>
+      <div class="vd-pillar"><b>Better than a safe bet?</b>
+        <span>Lending to the US government pays about 4.8% a year and cannot go bust.
+        This is how much more than that you would earn at today's price, if the company
+        carries on as it has. If a share cannot beat a government bond, the risk is
+        buying you nothing.</span></div>
       <div class="vd-pillar"><b>What kind of company</b>
-        <span>Each one is labelled: growing fast, a quality compounder, pays an income,
-        steady, shrinking, hard to value, or speculative. The label describes the
-        business, not whether the price is right.</span></div>
+        <span>Each one gets a label: growing fast, quietly compounding, pays you to wait,
+        slow and steady, going backwards, a long shot, or hard to pin down. The label
+        describes the business, not whether today's price is any good.</span></div>
       <div class="vd-pillar"><b>Not yet profitable</b>
-        <span>A label on companies still making a loss. Their price score is weak or missing,
-        because there are no profits to value.</span></div>
+        <span>A warning on companies still losing money. There are no profits to put a
+        price on, so their price mark is weak or missing entirely.</span></div>
     </div>
   </div>
   <details>
@@ -812,15 +827,16 @@
   // one growth company in 58 and none of 116 speculative ones. A fast-growing
   // company fails a value test for being fast-growing.
   const SCREENS = {
-    value: 'A sound business, repeatedly profitable, at a discount to what it '
-         + 'looks worth. The dull end, and the one with the longest record behind it.',
-    growth: 'Growing for years rather than one year, funding its own growth rather '
-          + 'than issuing shares to pay for it, and not already priced for faster '
-          + 'growth than it has ever delivered.',
-    speculative: 'Not yet profitable, so the questions are different: real customers, '
-               + 'money made on each sale, losses narrowing, and enough cash to last '
-               + 'two years. Most companies like this lose their owners money. Size '
-               + 'any position accordingly.',
+    value: 'A business that has made money year after year, going for less than '
+         + 'it looks worth. The unglamorous end of investing, and the one with the '
+         + 'longest track record behind it.',
+    growth: 'Growing for years rather than one lucky quarter, paying for that '
+          + 'growth out of its own pocket rather than by printing shares, and not '
+          + 'already priced for a miracle it has never pulled off.',
+    speculative: 'Not making money yet, so we ask different questions: are real '
+               + 'customers paying it, does it make money on each sale, are the losses '
+               + 'shrinking, and has it got two years of cash. Most companies like this '
+               + 'lose their owners money. Bet small.',
   };
   let screen = 'value';
   const passes = (r) => String(r[screen + '_qualifies']).toLowerCase() === 'true';
@@ -1011,46 +1027,51 @@
 
   // ---- browse by type ------------------------------------------------
   const GROUPS = {
-    all: {note: 'Every company examined, best first.', pick: () => true},
-    qualify: {note: 'These clear every condition on the value screen.',
+    all: {note: 'Everything we looked at, best marks first.', pick: () => true},
+    qualify: {note: 'These tick every box on the bargain list.',
               pick: (r) => String(r.qualifies).toLowerCase() === 'true'},
-    at_level: {note: 'Back at their 50- or 200-day average, having held above a '
-                     + 'rising one. The oldest entry setup there is: a company the '
-                     + 'screens already like, at a price buyers have defended before. '
-                     + 'It says when to look, never what to buy.',
+    at_level: {note: 'These have drifted back down to a price level that buyers '
+                     + 'have defended before, while the longer trend is still pointing '
+                     + 'up. It is the oldest trick in the book: wait for a good company '
+                     + 'to come back to you. It tells you when to look, never what '
+                     + 'to buy.',
                pick: (r) => String(r.at_sma50).toLowerCase() === 'true'
                          || String(r.at_sma200).toLowerCase() === 'true'},
-    passing_at_level: {note: 'The strongest combination on this page: a company that '
-                             + 'clears a whole screen on its numbers AND is back at '
-                             + 'one of its averages today.',
+    passing_at_level: {note: 'The best combination on this page: a company that ticks '
+                             + 'every box on its numbers AND has drifted back to a '
+                             + 'sensible price level today.',
                        pick: (r) => (String(r.at_sma50).toLowerCase() === 'true'
                                   || String(r.at_sma200).toLowerCase() === 'true')
                          && (r.passes || '').length > 0},
-    value: {note: 'Trading below what the business looks worth. Cheap usually means '
-                  + 'something is wrong, so read the scores before the discount.',
+    value: {note: 'Selling for less than the business looks worth. Cheap usually '
+                  + 'means something is wrong somewhere, so read the marks before you '
+                  + 'get excited about the discount.',
             pick: (r) => (num(r.margin_of_safety) ?? -9) > 0},
-    growth: {note: 'Sales growing more than a fifth a year, and priced for that to last.',
+    growth: {note: 'Sales climbing more than a fifth a year, with a price that '
+                   + 'assumes it keeps going.',
              pick: (r) => r.category === 'growth'},
-    compounder: {note: 'Earning high returns on the money in the business and growing '
-                       + 'steadily. The ones built to be held.',
+    compounder: {note: 'Earning a lot on the money tied up in them and growing '
+                       + 'steadily year after year. The sort you buy and forget about.',
                  pick: (r) => r.category === 'compounder'},
-    income: {note: 'Paying roughly a Treasury yield or better in dividends.',
+    income: {note: 'Handing you cash while you wait, at roughly what a government '
+                   + 'bond pays or better.',
              pick: (r) => r.category === 'income'},
-    steady: {note: 'Profitable, growing slowly. Rarely exciting, rarely a disaster.',
+    steady: {note: 'Making money, growing slowly. Rarely thrilling, rarely a '
+                   + 'disaster either.',
              pick: (r) => r.category === 'steady'},
-    speculative: {note: 'No profits yet. Their price rests on a future that has not '
-                        + 'happened, and most companies in this group lose money for '
-                        + 'their owners.',
+    speculative: {note: 'No profits yet, so the price rests entirely on a future '
+                        + 'that has not happened. Most companies in this group lose '
+                        + 'their owners money.',
                   pick: (r) => r.category === 'speculative'},
-    hard_to_value: {note: 'Profitable and established, but the valuation methods did '
-                          + 'not agree closely enough to stand behind a figure. Not the '
-                          + 'same thing as speculative.',
+    hard_to_value: {note: 'Real, profitable companies where our pricing methods '
+                          + 'disagreed too much for us to name a number. That is our '
+                          + 'limitation, not a mark against them.',
                     pick: (r) => r.category === 'hard_to_value'},
-    small: {note: 'Worth under about two billion dollars.',
+    small: {note: 'Small companies, worth under about two billion dollars.',
             pick: (r) => SMALLER.has(r.size)},
-    mid: {note: 'Worth roughly two to ten billion dollars.',
+    mid: {note: 'Mid-sized, worth roughly two to ten billion dollars.',
           pick: (r) => r.size === 'mid'},
-    large: {note: 'Worth more than ten billion dollars.',
+    large: {note: 'The big ones, worth more than ten billion dollars.',
             pick: (r) => r.size === 'mega' || r.size === 'large'},
   };
   let group = 'all';

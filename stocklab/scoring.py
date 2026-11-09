@@ -245,57 +245,57 @@ def plain_language(m: dict, report=None) -> dict[str, str]:
     operating = m.get("operating_margin")
     roe = m.get("roe")
     if bool(m.get("is_financial")) and is_num(roe) and roe > 0:
-        says["quality"] = (f"Earns about ${roe * 100:.0f} a year for every $100 of "
-                           "shareholders' money in the business.")
+        says["quality"] = (f"Makes about ${roe * 100:.0f} a year on every $100 the owners "
+                           "have tied up in it.")
     elif is_num(roic) and roic > 0:
-        says["quality"] = (f"Turns every $100 invested in the business into "
-                           f"${roic * 100:.0f} of profit a year.")
+        says["quality"] = (f"Every $100 put into this business brings back "
+                           f"${roic * 100:.0f} a year.")
     elif is_num(operating) and operating < 0:
-        says["quality"] = "Still loses money on its core operations."
+        says["quality"] = "Still loses money doing the thing it does."
     else:
-        says["quality"] = "Not enough history to judge how profitably it operates."
+        says["quality"] = "Too little history to tell how good it is at making money."
 
     growth = m.get("revenue_cagr_3y")
     if not is_num(growth):
-        says["growth"] = "No usable three-year sales history."
+        says["growth"] = "No usable three-year sales record."
     elif growth > 0.25:
-        says["growth"] = f"Sales growing fast, about {growth * 100:.0f}% a year over three years."
+        says["growth"] = f"Sales racing ahead, about {growth * 100:.0f}% a year for three years."
     elif growth > 0.08:
-        says["growth"] = f"Sales growing steadily, about {growth * 100:.0f}% a year over three years."
+        says["growth"] = f"Sales climbing nicely, about {growth * 100:.0f}% a year for three years."
     elif growth > 0:
-        says["growth"] = f"Sales barely growing, about {growth * 100:.0f}% a year."
+        says["growth"] = f"Sales barely moving, about {growth * 100:.0f}% a year."
     else:
-        says["growth"] = f"Sales shrinking, about {growth * 100:.0f}% a year."
+        says["growth"] = f"Sales going backwards, about {growth * 100:.0f}% a year."
 
     debt = m.get("net_debt_to_ebitda")
     equity = m.get("equity_to_assets")
     if bool(m.get("is_financial")) and is_num(equity):
-        says["safety"] = (f"Holds ${equity * 100:.0f} of its own money behind every $100 "
-                          "of assets. Whether it has set aside enough for future claims "
-                          "is not visible in these figures.")
+        says["safety"] = (f"Keeps ${equity * 100:.0f} of its own money behind every $100 it "
+                          "holds. Whether it has put enough aside for future claims is "
+                          "not something the filings show.")
     elif not is_num(debt):
-        says["safety"] = "Debt load cannot be judged from the filings."
+        says["safety"] = "The filings do not show enough to judge what it owes."
     elif debt < 0:
-        says["safety"] = "Holds more cash than debt."
+        says["safety"] = "Has more cash in the bank than debt."
     elif debt < 2:
-        says["safety"] = f"Modest borrowing: about {debt:.1f} years of profit."
+        says["safety"] = f"Borrows lightly: about {debt:.1f} years of profit owed."
     elif debt < 4:
-        says["safety"] = f"Noticeable borrowing: about {debt:.1f} years of profit."
+        says["safety"] = f"Carries real debt: about {debt:.1f} years of profit owed."
     else:
-        says["safety"] = f"Heavy borrowing: about {debt:.1f} years of profit."
+        says["safety"] = f"Heavily in debt: about {debt:.1f} years of profit owed."
 
     erp = getattr(report, "implied_equity_premium", None)
     if not is_num(erp):
-        says["price"] = "Too little profit history to work out what the price assumes."
+        says["price"] = "Too little profit history to tell whether the price makes sense."
     elif erp >= 0.05:
-        says["price"] = (f"At this price you would earn roughly {erp * 100:.1f}% a year more "
-                         "than a government bond, if the business performs as its history suggests.")
+        says["price"] = (f"At this price you would earn about {erp * 100:.1f}% a year more than "
+                         "a government bond, if it carries on as it has.")
     elif erp >= 0.02:
         says["price"] = f"Priced to pay about {erp * 100:.1f}% a year more than a government bond."
     elif erp >= 0:
-        says["price"] = f"Priced to pay only about {erp * 100:.1f}% a year more than a government bond."
+        says["price"] = f"Barely ahead of a government bond: about {erp * 100:.1f}% a year more."
     else:
-        says["price"] = "Priced to earn less than a government bond, on its own history."
+        says["price"] = "On its own record, you would do better lending to the government."
     return says
 
 

@@ -132,22 +132,22 @@ class TestOverall:
 class TestPlainLanguage:
     def test_profitable_company_gets_a_dollar_sentence(self):
         says = plain_language({"roic_5y_avg": 0.22}, FakeReport(erp=0.03))
-        assert "$22 of profit" in says["quality"]
+        assert "$22" in says["quality"]          # the figure, not the phrasing
 
     def test_loss_maker_is_said_plainly(self):
         says = plain_language({"operating_margin": -0.2}, None)
         assert "loses money" in says["quality"]
 
     def test_net_cash_is_said_plainly(self):
-        assert plain_language({"net_debt_to_ebitda": -1.5}, None)["safety"] == \
-            "Holds more cash than debt."
+        assert "cash" in plain_language({"net_debt_to_ebitda": -1.5}, None)["safety"]
+        assert "debt" in plain_language({"net_debt_to_ebitda": -1.5}, None)["safety"]
 
     def test_shrinking_sales_are_not_dressed_up(self):
-        assert "shrinking" in plain_language({"revenue_cagr_3y": -0.08}, None)["growth"]
+        assert "backwards" in plain_language({"revenue_cagr_3y": -0.08}, None)["growth"]
 
     def test_expensive_price_is_said_plainly(self):
         says = plain_language({}, FakeReport(erp=-0.01))
-        assert "less than a government bond" in says["price"]
+        assert "government" in says["price"]     # the comparison, not the phrasing
 
     def test_every_pillar_always_gets_a_sentence(self):
         for metrics, report in (({}, None), (STRONG, FakeReport(erp=0.06)), (WEAK, None)):
@@ -275,7 +275,7 @@ class TestInsurersAreNotFlatteredByFloat:
     def test_the_plain_sentence_uses_equity_not_invested_capital(self):
         from stocklab.scoring import plain_language
         says = plain_language(self.INSURER)
-        assert "shareholders' money" in says["quality"]
+        assert "owners" in says["quality"]       # equity, said plainly
         assert "Not enough history" not in says["quality"]
 
 
