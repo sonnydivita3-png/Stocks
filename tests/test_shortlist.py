@@ -415,3 +415,36 @@ class TestMissingOneConditionIsNotOneThing:
         for gates in SCREENS.values():
             for gate in gates:
                 assert gate.kind in GATE_KINDS, gate.key
+
+
+class TestPinnedCompaniesSurviveTheRebuild:
+    """The universe is chosen by size and growth from the frames API, so a
+    company asked for by name would otherwise come and go between rebuilds
+    as its revenue crossed a band edge."""
+
+    def test_the_pinned_list_leads_the_universe(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "bds", "scripts/build_desk_snapshot.py")
+        bds = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bds)
+        assert bds.ALWAYS_INCLUDE, "nothing pinned"
+        # They are placed ahead of everything else, so a limit cannot cut them.
+        source = open("scripts/build_desk_snapshot.py").read()
+        assert "ALWAYS_INCLUDE + MEGA_CAP_SAMPLE + picked" in source
+
+    def test_a_company_with_no_income_statement_is_not_called_speculative(self):
+        """SpaceX files a balance sheet and no income statement: no revenue,
+        no profit, no share count. That is not a loss-making company, it is
+        one we cannot measure, and the two must not read alike."""
+        nothing = {"share_count_reliable": 0.0, "revenue_reliable": 0.0,
+                   "profitable": False}
+        assert categorise(nothing) == "unclear"
+
+    def test_it_qualifies_for_nothing(self):
+        nothing = {"share_count_reliable": 0.0, "revenue_reliable": 0.0,
+                   "profitable": False}
+        verdict = assess(nothing)
+        assert verdict["passes"] == []
+        for screen in ("value", "growth", "speculative"):
+            assert not verdict[screen]["qualifies"]

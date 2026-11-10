@@ -111,6 +111,14 @@ def _revenue_by_cik(period: str) -> dict[str, float]:
     return out
 
 
+# Pinned by request. Add a symbol here and the weekly rebuild keeps it,
+# whatever its size or growth that week.
+ALWAYS_INCLUDE = [
+    "SOFI",   # SoFi Technologies
+    "SPCX",   # Space Exploration Technologies
+]
+
+
 def build_universe(limit: int = 515) -> list[str]:
     """Pick a spread of companies across every size band."""
     now = _revenue_by_cik("CY2025")
@@ -145,7 +153,11 @@ def build_universe(limit: int = 515) -> list[str]:
         fastest = list(growing.sort_values("growth", ascending=False).head(by_growth).index)
         picked += biggest + fastest
 
-    universe = list(dict.fromkeys(MEGA_CAP_SAMPLE + picked))
+    # Companies asked for by name. The universe is chosen by size and growth
+    # from the frames API, so a company the user wants would otherwise come
+    # and go between rebuilds as its revenue moved across a band edge. These
+    # go in first, so the weekly rebuild cannot drop them.
+    universe = list(dict.fromkeys(ALWAYS_INCLUDE + MEGA_CAP_SAMPLE + picked))
     return universe[:limit]
 
 
